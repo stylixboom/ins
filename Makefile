@@ -11,31 +11,31 @@ AR = ar
 LD = g++
 WINDRES = windres
 
-INC = 
+INC = -I/home/stylix/local/include
 CFLAGS = 
 RESINC = 
-LIBDIR = 
-LIB = 
-LDFLAGS = 
+LIBDIR = -L/home/stylix/local/lib
+LIB = ../alphautils/libalphautils.a -lopencv_stitching -lopencv_videostab -lopencv_gpu -lopencv_legacy -lopencv_ts -lopencv_nonfree -lopencv_contrib -lopencv_calib3d -lopencv_objdetect -lopencv_features2d -lopencv_video -lopencv_photo -lopencv_highgui -lopencv_flann -lopencv_imgproc -lopencv_ml -lopencv_core
+LDFLAGS = `pkg-config --libs opencv` -lgomp -lrt -lpthread -ldl
 
-INC_DEBUG = $(INC) -I/home/stylix/local/include
+INC_DEBUG = $(INC)
 CFLAGS_DEBUG = $(CFLAGS) -Wall -g -fopenmp `pkg-config --cflags opencv`
 RESINC_DEBUG = $(RESINC)
 RCFLAGS_DEBUG = $(RCFLAGS)
-LIBDIR_DEBUG = $(LIBDIR) -L/home/stylix/local/lib
-LIB_DEBUG = $(LIB)../alphautils/libalphautils.a -lopencv_world -lopencv_stitching -lopencv_videostab -lopencv_gpu -lopencv_legacy -lopencv_ts -lopencv_nonfree -lopencv_contrib -lopencv_calib3d -lopencv_objdetect -lopencv_features2d -lopencv_video -lopencv_photo -lopencv_highgui -lopencv_flann -lopencv_imgproc -lopencv_ml -lopencv_core
-LDFLAGS_DEBUG = $(LDFLAGS) `pkg-config --libs opencv` -lgomp -lrt -lpthread -ldl
+LIBDIR_DEBUG = $(LIBDIR)
+LIB_DEBUG = $(LIB)
+LDFLAGS_DEBUG = $(LDFLAGS)
 OBJDIR_DEBUG = obj/Debug
 DEP_DEBUG = 
 OUT_DEBUG = ./libins.a
 
-INC_RELEASE = $(INC) -I/home/stylix/local/include
+INC_RELEASE = $(INC)
 CFLAGS_RELEASE = $(CFLAGS) -O3 -Wall -fopenmp `pkg-config --cflags opencv`
 RESINC_RELEASE = $(RESINC)
 RCFLAGS_RELEASE = $(RCFLAGS)
-LIBDIR_RELEASE = $(LIBDIR) -L/home/stylix/local/lib
-LIB_RELEASE = $(LIB)../alphautils/libalphautils.a -lopencv_world -lopencv_stitching -lopencv_videostab -lopencv_gpu -lopencv_legacy -lopencv_ts -lopencv_nonfree -lopencv_contrib -lopencv_calib3d -lopencv_objdetect -lopencv_features2d -lopencv_video -lopencv_photo -lopencv_highgui -lopencv_flann -lopencv_imgproc -lopencv_ml -lopencv_core
-LDFLAGS_RELEASE = $(LDFLAGS) -s `pkg-config --libs opencv` -lgomp -lrt -lpthread -ldl
+LIBDIR_RELEASE = $(LIBDIR)
+LIB_RELEASE = $(LIB)
+LDFLAGS_RELEASE = $(LDFLAGS) -s
 OBJDIR_RELEASE = obj/Release
 DEP_RELEASE = 
 OUT_RELEASE = ./libins.a
@@ -76,7 +76,6 @@ $(OBJDIR_DEBUG)/invert_index.o: invert_index.cpp
 
 clean_debug: 
 	rm -f $(OBJ_DEBUG) $(OUT_DEBUG)
-	rm -rf .
 	rm -rf $(OBJDIR_DEBUG)
 
 before_release: 
@@ -107,7 +106,6 @@ $(OBJDIR_RELEASE)/invert_index.o: invert_index.cpp
 
 clean_release: 
 	rm -f $(OBJ_RELEASE) $(OUT_RELEASE)
-	rm -rf .
 	rm -rf $(OBJDIR_RELEASE)
 
 .PHONY: before_debug after_debug clean_debug before_release after_release clean_release
