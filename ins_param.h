@@ -53,6 +53,14 @@ namespace ins
 	const static int MIN_FEATURE = 1;
 	const static int MIN_IDF = 2;
 
+    // QBmining type
+    const static int QB_FIW = 0;               // Original Frequent itemset mining
+    const static int QB_PREFIW = 1;            // Take pre-calculate FIM pattern
+    const static int QB_FIX = 2;               // Specify minsup
+    const static int QB_GLOSD = 3;             // Baseline, auto minsup by average global SD to centroid without co-occurrence (trick)
+    const static int QB_LOCSD = 4;             // Auto minsup by average local compactness to centroid without co-occurrence (trick)
+    const static int QB_QEAVG = 5;             // Average query expansion
+
 	// Multirank mode
 	const static int ADD_COMBINATION = 0;
 	const static int MEAN_COMBINATION = 1;
@@ -62,6 +70,11 @@ namespace ins
 	// Query scale
 	const static int SCALE_ABS = 0;
 	const static int SCALE_RATIO = 1;
+
+	// Pooling
+	const static int POOL_SUM = 0;
+	const static int POOL_MAX = 1;
+	const static int POOL_AVG = 2;
 
 class ins_param
 {
@@ -121,10 +134,12 @@ public:
     int query_bootstrap_minbow_type;
     int query_bootstrap_minbow;
     int query_bootstrap_patch;
-    int query_bootstrap_clusterit;
     bool query_bootstrap_mask_enable;
+
     // Frequent Item Set Mining for qb
     bool qbmining_enable;
+    int qbmining_mode;
+    int qbmining_topk;
     int qbmining_minsup;
 
     // Scanning windows
@@ -135,12 +150,17 @@ public:
     int scanning_window_shift_y;
 
     // Multirank
+    bool multirank_enable;
     int multirank_mode;
 
     // Query scale
     bool query_scale_enable;
     int query_scale_type;
     int query_scale;
+
+    // Pooling
+    bool pooling_enable;
+    int pooling_type;
 
     // Misc
     bool report_enable;
