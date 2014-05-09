@@ -51,6 +51,10 @@ ins_param::ins_param(void)
 
     // Scale
     query_scale_enable = false;
+
+    // Pooling
+    pooling_enable = true;
+    pooling_mode = POOL_SUM;
 }
 
 ins_param::~ins_param(void)
@@ -253,6 +257,7 @@ void ins_param::set_presetparam(const string& params_prefix)
         }
         else if (params[param_idx] == "pooling") // Query scale test
         {
+            /// Pattern poolingenable_mode
             pooling_enable = true;
             if (str_contains(params[param_idx + 1], "sum"))     // sum pooling
                 pooling_mode = POOL_SUM;
