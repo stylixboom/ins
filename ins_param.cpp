@@ -255,11 +255,11 @@ void ins_param::set_presetparam(const string& params_prefix)
         {
             pooling_enable = true;
             if (str_contains(params[param_idx + 1], "sum"))     // sum pooling
-                pooling_type = POOL_SUM;
+                pooling_mode = POOL_SUM;
             else if (str_contains(params[param_idx + 1], "max"))// max pooling
-                pooling_type = POOL_MAX;
+                pooling_mode = POOL_MAX;
             else if (str_contains(params[param_idx + 1], "avg"))// avg pooling
-                pooling_type = POOL_AVG;
+                pooling_mode = POOL_AVG;
             param_idx += 1;
         }
         else if (params[param_idx] == "report") // Report

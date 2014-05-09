@@ -160,7 +160,7 @@ public:
 
     // Pooling
     bool pooling_enable;
-    int pooling_type;
+    int pooling_mode;
 
     // Misc
     bool report_enable;
