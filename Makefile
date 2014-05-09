@@ -76,7 +76,8 @@ $(OBJDIR_DEBUG)/invert_index.o: invert_index.cpp
 
 clean_debug: 
 	rm -f $(OBJ_DEBUG) $(OUT_DEBUG)
-	rm -rf $(OBJDIR_DEBUG)
+	#rm -rf .
+	rm -rf .(OBJDIR_DEBUG)
 
 before_release: 
 	test -d . || mkdir -p .
@@ -106,7 +107,8 @@ $(OBJDIR_RELEASE)/invert_index.o: invert_index.cpp
 
 clean_release: 
 	rm -f $(OBJ_RELEASE) $(OUT_RELEASE)
-	rm -rf $(OBJDIR_RELEASE)
+	#rm -rf .
+	rm -rf .(OBJDIR_RELEASE)
 
 .PHONY: before_debug after_debug clean_debug before_release after_release clean_release
 
