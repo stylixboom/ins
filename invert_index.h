@@ -23,6 +23,8 @@
 #include "ins_param.h"
 #include "gvp.h"
 
+#include "version.h"
+
 using namespace std;
 using namespace tr1;
 using namespace alphautils;
