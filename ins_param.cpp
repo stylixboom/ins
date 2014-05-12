@@ -54,7 +54,7 @@ ins_param::ins_param(void)
 
     // Pooling
     pooling_enable = true;
-    pooling_mode = POOL_SUM;
+    pooling_mode = POOL_AVG;
 }
 
 ins_param::~ins_param(void)
@@ -111,7 +111,7 @@ void ins_param::set_presetparam(const string& params_prefix)
         }
         else if (params[param_idx] == "gvp" || params[param_idx] == "dvp")
         {
-            /// Pattern gvpsimilaritymode_gvpsize_gvplength
+            /// Pattern gvpmode_gvpsize_gvplength
             SIM_mode = SIM_GVP;
             if (params[param_idx] == "gvp") // GVP baseline
                 GVP_mode = OFFSET;
@@ -206,7 +206,7 @@ void ins_param::set_presetparam(const string& params_prefix)
         }
         else if (params[param_idx] == "scan") // Scanning window
         {
-            /// Pattern scanningwindow_width_height_shiftx_shifty
+            /// Pattern scan_width_height_shiftx_shifty
             scanning_window_enable = true;
             scanning_window_width = atoi(params[param_idx + 1].c_str());
             scanning_window_height = atoi(params[param_idx + 2].c_str());
@@ -257,7 +257,7 @@ void ins_param::set_presetparam(const string& params_prefix)
         }
         else if (params[param_idx] == "pooling") // Query scale test
         {
-            /// Pattern poolingenable_mode
+            /// Pattern pooling_mode
             pooling_enable = true;
             if (str_contains(params[param_idx + 1], "sum"))     // sum pooling
                 pooling_mode = POOL_SUM;
