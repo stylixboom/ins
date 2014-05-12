@@ -40,7 +40,7 @@ class bow
     ins_param run_param;
 public:
     // Public variables and functions here
-	bow(ins_param param);
+	bow(ins_param param, const vector<int>& quantized_indices, const vector< vector<float> >& keypoints);
 	~bow(void);
 	void set_mask(/*param*/);
 	void get_bow(vector<bow_bin_object>& bow_sig);

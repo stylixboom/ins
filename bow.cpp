@@ -14,7 +14,7 @@ using namespace alphautils;
 namespace ins
 {
 
-bow::bow(ins_param param)
+bow::bow(ins_param param, const vector<int>& quantized_indices, const vector< vector<float> >& keypoints)
 {
     run_param = param;
 }

@@ -16,17 +16,17 @@ namespace ins_AutoVersion{
 	//Standard Version Type
 	static const long ins_MAJOR  = 1;
 	static const long ins_MINOR  = 5;
-	static const long ins_BUILD  = 54;
-	static const long ins_REVISION  = 73;
+	static const long ins_BUILD  = 55;
+	static const long ins_REVISION  = 79;
 	
 	//Miscellaneous Version Types
-	static const long ins_BUILDS_COUNT  = 104;
-	#define ins_RC_FILEVERSION 1,5,54,73
-	#define ins_RC_FILEVERSION_STRING "1, 5, 54, 73\0"
-	static const char ins_FULLVERSION_STRING [] = "1.5.54.73";
+	static const long ins_BUILDS_COUNT  = 105;
+	#define ins_RC_FILEVERSION 1,5,55,79
+	#define ins_RC_FILEVERSION_STRING "1, 5, 55, 79\0"
+	static const char ins_FULLVERSION_STRING [] = "1.5.55.79";
 	
 	//These values are to keep track of your versioning state, don't modify them.
-	static const long ins_BUILD_HISTORY  = 6;
+	static const long ins_BUILD_HISTORY  = 7;
 	
 
 }
