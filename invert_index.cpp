@@ -8,7 +8,6 @@
 #include "invert_index.h"
 
 using namespace std;
-using namespace tr1;
 using namespace alphautils;
 
 namespace ins
@@ -138,7 +137,7 @@ void invert_index::add(size_t dataset_id, const vector<bow_bin_object>& bow_sig)
         // Prepare inv_index for new dataset
         dataset_object new_dataset;
         new_dataset.dataset_id = dataset_id;
-        new_dataset.freq = (*bow_sig_it).freq;
+        new_dataset.weight = (*bow_sig_it).weight;
         new_dataset.features = (*bow_sig_it).features;
 
 		// Adding into inverted index table
@@ -220,7 +219,7 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
 {
 	int hitpoint = 0;
 	int misspoint = 0;
-    // bin cluster_id | freq
+    // bin cluster_id | weight
 	vector<bow_bin_object>::const_iterator bow_sig_it;
 
 	cout << "Non-zero bin count: " << bow_sig.size() << endl;
@@ -228,7 +227,7 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
 	/*for (bow_sig_it = bow_sig.begin(); bow_sig_it != bow_sig.end(); bow_sig_it++)
     {
         cout << "cluster_id: " << bow_sig_it->cluster_id;
-        cout << "freq: " << bow_sig_it->freq << endl;
+        cout << "weight: " << bow_sig_it->weight << endl;
     }*/
 
 	// For each cluster_id in bow signature
@@ -240,8 +239,8 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
         if (stop_list[cluster_id])
             continue;
 
-		// bow_sig_it->freq = Normalized tf-idf of this bin
-		float freq = bow_sig_it->freq;
+		// bow_sig_it->weight = Normalized tf-idf of this bin
+		float weight = bow_sig_it->weight;
 
         // Inverted histogram cache hit check
 		if (!inv_cache_hit[cluster_id])
@@ -253,7 +252,7 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
 		else
 			hitpoint++;
 
-		// cluster_id | (dataset id, freq)
+		// cluster_id | (dataset id, weight)
 		// foreach cluster_id match, accumulate similarity to each dataset
 		deque<dataset_object>::iterator matched_cluster_it;
 		for (matched_cluster_it = inv_idx_data[cluster_id].begin(); matched_cluster_it != inv_idx_data[cluster_id].end();  matched_cluster_it++)
@@ -261,13 +260,13 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
 			// Look if exist video id in result
 			size_t dataset_id = matched_cluster_it->dataset_id;
 			// Histogram intersection
-			float freq_intersected = freq;
-			//cout << "bow freq: " << freq << " cluster_id: " << cluster_id << " dataset_id: " << dataset_id << " db freq: " << (*matched_cluster_it).freq << endl;
-			// matched_cluster_it->freq = Normalized tf-idf of this bin
-			if (freq_intersected > matched_cluster_it->freq)
-				freq_intersected = matched_cluster_it->freq;
+			float weight_intersected = weight;
+			//cout << "bow weight: " << weight << " cluster_id: " << cluster_id << " dataset_id: " << dataset_id << " db weight: " << (*matched_cluster_it).weight << endl;
+			// matched_cluster_it->weight = Normalized tf-idf of this bin
+			if (weight_intersected > matched_cluster_it->weight)
+				weight_intersected = matched_cluster_it->weight;
 			dataset_hit[dataset_id] = true;
-			dataset_score[dataset_id] += freq_intersected; // accumulated freq
+			dataset_score[dataset_id] += weight_intersected; // accumulated weight
 
 			if (matching_dump)
 			{
@@ -278,7 +277,7 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
                     for (dataset_feature_it = matched_cluster_it->features.begin(); dataset_feature_it != matched_cluster_it->features.end(); dataset_feature_it++) // foreach feature in a bin
                     {
                         // Dump matching if enable
-                        feature_matching_dump(dataset_id, cluster_id, bow_sig_it->freq, dataset_feature_it->x, dataset_feature_it->y, dataset_feature_it->a, dataset_feature_it->b, dataset_feature_it->c, query_feature_it->x, query_feature_it->y, query_feature_it->a, query_feature_it->b, query_feature_it->c);
+                        feature_matching_dump(dataset_id, cluster_id, bow_sig_it->weight, dataset_feature_it->x, dataset_feature_it->y, dataset_feature_it->a, dataset_feature_it->b, dataset_feature_it->c, query_feature_it->x, query_feature_it->y, query_feature_it->a, query_feature_it->b, query_feature_it->c);
                     }
                 }
             }
@@ -344,11 +343,11 @@ void invert_index::similarity_gvp(const vector<bow_bin_object>& bow_sig, bitset<
                 vector<feature_object>::iterator dataset_feature_it; // feature from inverted_index
                 for (dataset_feature_it = matched_cluster_it->features.begin(); dataset_feature_it != matched_cluster_it->features.end(); dataset_feature_it++) // foreach feature in a bin
                 {
-                    gvp_processor.calc_motion(dataset_id, bow_sig_it->freq, idf[cluster_id], dataset_feature_it->x, dataset_feature_it->y, query_feature_it->x, query_feature_it->y);
+                    gvp_processor.calc_motion(dataset_id, bow_sig_it->weight, idf[cluster_id], dataset_feature_it->x, dataset_feature_it->y, query_feature_it->x, query_feature_it->y);
 
                     // Dump matching if enable
                     if (matching_dump)
-                        feature_matching_dump(dataset_id, cluster_id, bow_sig_it->freq, dataset_feature_it->x, dataset_feature_it->y, dataset_feature_it->a, dataset_feature_it->b, dataset_feature_it->c, query_feature_it->x, query_feature_it->y, query_feature_it->a, query_feature_it->b, query_feature_it->c);
+                        feature_matching_dump(dataset_id, cluster_id, bow_sig_it->weight, dataset_feature_it->x, dataset_feature_it->y, dataset_feature_it->a, dataset_feature_it->b, dataset_feature_it->c, query_feature_it->x, query_feature_it->y, query_feature_it->a, query_feature_it->b, query_feature_it->c);
                 }
 
                 // Flag existing in dataset_hit
@@ -458,6 +457,11 @@ float invert_index::get_idf(size_t cluster_id)
     return idf[cluster_id];
 }
 
+void invert_index::get_idf_ref(float *&ref_idf)
+{
+    ref_idf = idf;
+}
+
 void invert_index::save_invfile()
 {
 	// Save invert_index Header
@@ -484,7 +488,7 @@ void invert_index::save_invfile()
 	int partition_digit_length = (int)log10(DB_MAX_PARTITION);
 	int file_digit_length = (int)ceil(log10(partition_size));
 
-	// Prepare parrtition directory
+	// Prepare partition directory
 	/*
 	for (size_t partition_idx = 0; partition_idx < DB_MAX_PARTITION; partition_idx++)
 	{
@@ -494,10 +498,13 @@ void invert_index::save_invfile()
 		make_dir_available(partition_path);
 	}*/
 	// Faster by mkdir 0{0..9} && mkdir {10..99}
-	string cmd = "mkdir -m 755 -p " + inv_file_path + "/0{0..9}";
+	string cmd = "ssh `hostname` \"mkdir -m 755 -p " + inv_file_path + "/0{0..9}\"";
+	//cout << "Running script.. " << cmd << endl;
 	exec(cmd);
-	cmd = "mkdir -m 755 -p " + inv_file_path + "/{10..99}";
+	cmd = "ssh `hostname` \"mkdir -m 755 -p " + inv_file_path + "/{10..99}\"";
+	//cout << "Running script.. " << cmd << endl;
 	exec(cmd);
+	//cin.get();
 
 	// Write data
 	for (size_t cluster_id = 0; cluster_id != CLUSTER_SIZE; cluster_id++)
@@ -537,8 +544,8 @@ void invert_index::save_invfile()
 
 				// Write int dataset_id
 				iv_data_File.write(reinterpret_cast<char*>(&(inv_idx_data_it->dataset_id)), sizeof(inv_idx_data_it->dataset_id));
-				// Write float frequency
-				iv_data_File.write(reinterpret_cast<char*>(&(inv_idx_data_it->freq)), sizeof(inv_idx_data_it->freq));
+				// Write float weight
+				iv_data_File.write(reinterpret_cast<char*>(&(inv_idx_data_it->weight)), sizeof(inv_idx_data_it->weight));
 				// Write feature_amount
 				size_t feature_amount = inv_idx_data_it->features.size();
 				iv_data_File.write(reinterpret_cast<char*>(&feature_amount), sizeof(feature_amount));
@@ -614,8 +621,8 @@ void invert_index::load_invfile(int top)
                 dataset_object read_dataset;
                 // Read dataset_id
 				iv_data_File.read((char*)(&(read_dataset.dataset_id)), sizeof(read_dataset.dataset_id));
-				// Read frequency
-				iv_data_File.read((char*)(&(read_dataset.freq)), sizeof(read_dataset.freq));
+				// Read weight
+				iv_data_File.read((char*)(&(read_dataset.weight)), sizeof(read_dataset.weight));
 				// Read feature_amount
 				size_t feature_amount = 0;
 				iv_data_File.read((char*)(&feature_amount), sizeof(feature_amount));
@@ -678,8 +685,8 @@ void invert_index::cache_dataset(size_t cluster_id)
             dataset_object read_dataset;
             // Read dataset_id
             iv_data_File.read((char*)(&(read_dataset.dataset_id)), sizeof(read_dataset.dataset_id));
-            // Read frequency
-            iv_data_File.read((char*)(&(read_dataset.freq)), sizeof(read_dataset.freq));
+            // Read weight
+            iv_data_File.read((char*)(&(read_dataset.weight)), sizeof(read_dataset.weight));
             // Read feature_amount
             size_t feature_amount = 0;
             iv_data_File.read((char*)(&feature_amount), sizeof(feature_amount));

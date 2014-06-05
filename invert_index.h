@@ -14,10 +14,10 @@
 #include <string>
 #include <sys/time.h>
 #include <sstream>
-#include <tr1/unordered_map>
-#include <math.h>
+#include <unordered_map>
+#include <cmath>
 #include <algorithm> // sort
-#include <stdlib.h> // exit
+#include <cstdlib> // exit
 
 #include "../alphautils/alphautils.h"
 #include "ins_param.h"
@@ -26,14 +26,16 @@
 #include "version.h"
 
 using namespace std;
-using namespace tr1;
 using namespace alphautils;
 
 namespace ins
 {
+// feature_id is the index relative to its image
+// weight is for using with mask
 typedef struct _feature_object{ size_t feature_id; float weight; float x; float y; float a; float b; float c; } feature_object;
-typedef struct _bow_bin_object{ size_t cluster_id; float freq; vector<feature_object> features; } bow_bin_object;
-typedef struct _dataset_object{ size_t dataset_id; float freq; vector<feature_object> features; } dataset_object;
+// weight is for each bin
+typedef struct _bow_bin_object{ size_t cluster_id; float weight; vector<feature_object> features; } bow_bin_object;
+typedef struct _dataset_object{ size_t dataset_id; float weight; vector<feature_object> features; } dataset_object;
 // bow_sig = vector<bow_bin_object>
 // invert_data = array[vector<dataset_object>]
 
@@ -52,15 +54,15 @@ class invert_index
 	deque<dataset_object>* inv_idx_data;
 	/// inv_data[
 	///     cluster_id 0: deque[
-	///         0 [dataset_id, freq, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
-	///         1 [dataset_id, freq, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
-	///         2 [dataset_id, freq, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
+	///         0 [dataset_id, weight, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
+	///         1 [dataset_id, weight, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
+	///         2 [dataset_id, weight, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
 	///         ...
     ///     ]
 	///     cluster_id 1: deque[
-	///         0 [dataset_id, freq, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
-	///         1 [dataset_id, freq, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
-	///         2 [dataset_id, freq, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
+	///         0 [dataset_id, weight, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
+	///         1 [dataset_id, weight, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
+	///         2 [dataset_id, weight, vector[ [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], [feature_id, x, y, a, b, c], ... ]],
 	///         ...
     ///     ]
     ///     ...
@@ -95,6 +97,7 @@ public:
 	void stop_matching_dump();
 	void update_idf();
 	float get_idf(size_t cluster_id);
+	void get_idf_ref(float *&ref_idf);
 	void save_invfile();
 	void load_invfile(int top);
 	void cache_dataset(size_t index);
