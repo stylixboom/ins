@@ -15,10 +15,10 @@
 #include <string>
 #include <sys/time.h>
 #include <sstream>
-#include <tr1/unordered_map>
-#include <math.h>
+#include <unordered_map>
+#include <cmath>
 #include <algorithm> // sort
-#include <stdlib.h> // exit
+#include <cstdlib> // exit
 
 #include <sys/types.h> // for checking exist file and dir
 #include <sys/stat.h>
@@ -26,7 +26,6 @@
 #include "../alphautils/alphautils.h"
 
 using namespace std;
-using namespace tr1;
 using namespace alphautils;
 
 namespace ins
@@ -88,7 +87,28 @@ public:
     string raw_param;
     string detailed_param;
 
-    // Summarized param
+    // File param
+    string offline_working_path;
+    string cluster_path;
+    string dataset_basepath_path;
+    string dataset_filename_path;
+    string feature_keypoint_path;
+    string feature_descriptor_path;
+    string poolinfo_path;
+    string quantized_path;
+    string quantized_offset_path;
+    string searchindex_path;
+    string bow_offset_path;
+    string bow_pool_offset_path;
+    string bow_path;
+    string bow_pool_path;
+    string inv_path;
+    string invdef_path;
+    string online_working_path;
+    string histrequest_path;
+
+    // Directory param
+    string home_path;
     string code_root_dir;
     string database_root_dir;
     string dataset_root_dir;
@@ -98,6 +118,7 @@ public:
     int group_level;
     string dataset_prefix;
     string dataset_header;
+    string pooling_string;
 
     // Hardware Param
     int MAXCPU;

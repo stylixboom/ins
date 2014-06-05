@@ -8,7 +8,6 @@
 #include "ins_param.h"
 
 using namespace std;
-using namespace tr1;
 using namespace alphautils;
 
 namespace ins
@@ -16,10 +15,12 @@ namespace ins
 
 ins_param::ins_param(void)
 {
-    code_root_dir = "/home/stylix/webstylix/code";
-    database_root_dir = "/home/stylix/webstylix/code/database/ins_offline";
-    dataset_root_dir = "/home/stylix/webstylix/code/dataset";
-    query_root_dir = "/home/stylix/webstylix/code/ins_online/query";
+    // Directory param
+    home_path = getenv("HOME");
+    code_root_dir = home_path + "/webstylix/code";
+    database_root_dir = home_path + "/webstylix/code/database/ins_offline";
+    dataset_root_dir = home_path + "/webstylix/code/dataset";
+    query_root_dir = home_path + "/webstylix/code/ins_online/query";
     dataset_preset_index = 0;
 
     // Get total CPUs, then keep it to MAXCPU
@@ -265,6 +266,7 @@ void ins_param::set_presetparam(const string& params_prefix)
                 pooling_mode = POOL_MAX;
             else if (str_contains(params[param_idx + 1], "avg"))// avg pooling
                 pooling_mode = POOL_AVG;
+            pooling_string = "pooling_" + params[param_idx + 1];
             param_idx += 1;
         }
         else if (params[param_idx] == "report") // Report
@@ -280,6 +282,26 @@ void ins_param::set_presetparam(const string& params_prefix)
     // Set feature_name
     feature_name = feature_builder.str();
 
+    /// Initialize directory path
+    // File param
+    offline_working_path    = database_root_dir + "/" + dataset_header;
+    cluster_path            = offline_working_path + "/cluster";
+    dataset_basepath_path   = offline_working_path + "/dataset_basepath";
+    dataset_filename_path   = offline_working_path + "/dataset_filename";
+    feature_keypoint_path   = offline_working_path + "/feature_keypoint";
+    feature_descriptor_path = offline_working_path + "/feature_descriptor";
+    poolinfo_path           = offline_working_path + "/poolinfo";
+    quantized_path          = offline_working_path + "/quantized";
+    quantized_offset_path   = offline_working_path + "/quantized_offset";
+    searchindex_path        = offline_working_path + "/searchindex";
+    bow_offset_path         = offline_working_path + "/bow_offset";
+    bow_pool_offset_path    = offline_working_path + "/bow_" + pooling_string + "_offset";
+    bow_path                = offline_working_path + "/bow";
+    bow_pool_path           = offline_working_path + "/bow_" + pooling_string;
+    inv_path                = offline_working_path + "/invdata_" + dataset_header + "_" + pooling_string;
+    invdef_path             = inv_path + "/invertedhist.def";
+    online_working_path     = query_root_dir + "/" + dataset_prefix;
+    histrequest_path        = online_working_path + "/hist_request.txt";
 }
 
 void ins_param::LoadPreset()
