@@ -8,7 +8,6 @@
 #include "gvp.h"
 
 using namespace std;
-using namespace tr1;
 using namespace alphautils;
 
 namespace ins
