@@ -20,29 +20,23 @@ invert_index::invert_index(void)
 
 invert_index::~invert_index(void)
 {
-    reset();
-
-	delete[] actual_cluster_amount;
-	delete[] idf;
-	delete[] inv_idx_data;
+    release_memory();
 }
 
-size_t invert_index::init(size_t cluster_size, const string& path)
+void invert_index::init(const ins_param& param)
 {
-    CLUSTER_SIZE = cluster_size;
-    inv_file_path = path;
+    run_param = param;
 
-    cout << "Initializing memory...";
-    cout << " " << path;
+    cout << "Initializing memory... " << run_param.inv_path;
 	cout.flush();
 
     // Initializing
-    total_df = 0;
-    actual_cluster_amount = new size_t[CLUSTER_SIZE];
-    idf = new float[CLUSTER_SIZE];
-    inv_idx_data = new deque<dataset_object>[CLUSTER_SIZE];
+    size_t total_df = 0;
+    actual_cluster_amount = new size_t[run_param.CLUSTER_SIZE];
+    idf = new float[run_param.CLUSTER_SIZE];
+    inv_idx_data = new vector<dataset_object*>[run_param.CLUSTER_SIZE];
 
-	for(size_t cluster_id = 0; cluster_id != CLUSTER_SIZE; cluster_id++)
+	for(size_t cluster_id = 0; cluster_id != run_param.CLUSTER_SIZE; cluster_id++)
 	{
         stop_list[cluster_id] = false;
 		inv_cache_hit[cluster_id] = false;
@@ -53,10 +47,10 @@ size_t invert_index::init(size_t cluster_size, const string& path)
 
     /// Load inverted file header
 	// Check if exist inverted file
-	if (is_path_exist((inv_file_path + "/invertedhist.def")))
+	if (is_path_exist(run_param.invdef_path))
 	{
         // Load existing invert_index Def
-        ifstream iv_header_File ((inv_file_path + "/invertedhist.def").c_str(), ios::binary);
+        ifstream iv_header_File (run_param.invdef_path.c_str(), ios::binary);
         if (iv_header_File)
         {
             // Load dataset_size
@@ -64,7 +58,7 @@ size_t invert_index::init(size_t cluster_size, const string& path)
             iv_header_File.read((char*)(&dataset_size), sizeof(dataset_size));
 
             // Load cluster_amount
-            for(size_t cluster_id = 0; cluster_id < CLUSTER_SIZE; cluster_id++)
+            for(size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
             {
                 // Read cluster_amount
                 size_t read_cluster_amount;
@@ -105,7 +99,7 @@ size_t invert_index::init(size_t cluster_size, const string& path)
             }
 
             // Load idf
-            for (size_t cluster_id = 0; cluster_id < CLUSTER_SIZE; cluster_id++)
+            for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
             {
                 // Read idf
                 float read_idf;
@@ -123,22 +117,26 @@ size_t invert_index::init(size_t cluster_size, const string& path)
     // Matching dump clear flag
     matching_dump = false;
 
-	return dataset_size;
+    // Partitioning
+    partition_size = run_param.CLUSTER_SIZE / DB_MAX_PARTITION;
+	partition_digit_length = int(log10(DB_MAX_PARTITION));
+	file_digit_length = int(ceil(log10(partition_size)));
 }
 
-void invert_index::add(size_t dataset_id, const vector<bow_bin_object>& bow_sig)
+void invert_index::add(size_t dataset_id, const vector<bow_bin_object*>& bow_sig)
 {
-	vector<bow_bin_object>::const_iterator bow_sig_it;
+	size_t bow_sig_size = bow_sig.size();
 
-	for (bow_sig_it = bow_sig.begin(); bow_sig_it != bow_sig.end(); bow_sig_it++)
+	for (size_t bow_idx = 0; bow_idx < bow_sig_size; bow_idx++)
 	{
-		size_t cluster_id = (*bow_sig_it).cluster_id;
+		size_t cluster_id = bow_sig[bow_idx]->cluster_id;
 
         // Prepare inv_index for new dataset
-        dataset_object new_dataset;
-        new_dataset.dataset_id = dataset_id;
-        new_dataset.weight = (*bow_sig_it).weight;
-        new_dataset.features = (*bow_sig_it).features;
+        dataset_object* new_dataset = new dataset_object();
+        new_dataset->dataset_id = dataset_id;
+        new_dataset->weight = bow_sig[bow_idx]->weight;
+        swap(new_dataset->features, bow_sig[bow_idx]->features);  // <---- better to copy
+
 
 		// Adding into inverted index table
 		inv_cache_hit[cluster_id] = true;
@@ -149,7 +147,7 @@ void invert_index::add(size_t dataset_id, const vector<bow_bin_object>& bow_sig)
 	dataset_size++;
 }
 
-size_t invert_index::search(const vector<bow_bin_object>& bow_sig, vector< pair<size_t, float> >& ret_ranklist, int sim_mode, int* sim_param)
+size_t invert_index::search(const vector<bow_bin_object*>& bow_sig, vector< pair<size_t, float> >& ret_ranklist, int sim_mode, int* sim_param)
 {
 	int totalMatch = 0;
 	// video id | similarity
@@ -158,8 +156,8 @@ size_t invert_index::search(const vector<bow_bin_object>& bow_sig, vector< pair<
     // Query comparor
 	bitset<MAX_DATASET_SIZE> dataset_hit; // MAX_DATASET_SIZE and dataset_size is the same
 	float dataset_score[dataset_size];
-	// Initialize
-	for (size_t index = 0; index != dataset_size; index++)
+	// Reset score and match result
+	for (size_t index = 0; index < dataset_size; index++)
 	{
 		dataset_hit[index] = false;
 		dataset_score[index] = 0.0f;
@@ -188,7 +186,7 @@ size_t invert_index::search(const vector<bow_bin_object>& bow_sig, vector< pair<
 	cout << "Preparing..";
 	cout.flush();
 	timespec prepareTime = CurrentPreciseTime();
-	for (size_t index = 0; index != dataset_size ; index++)
+	for (size_t index = 0; index < dataset_size ; index++)
 		if(dataset_hit[index])
 			ret_ranklist.push_back(pair<size_t, float>(index, dataset_score[index]));
 	cout << "done! (in " << setprecision(2) << fixed << TimeElapse(prepareTime) << " s)" << endl;
@@ -215,14 +213,14 @@ size_t invert_index::search(const vector<bow_bin_object>& bow_sig, vector< pair<
 	return totalMatch;
 }
 
-void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<MAX_DATASET_SIZE>& dataset_hit, float dataset_score[])
+void invert_index::similarity_l1(const vector<bow_bin_object*>& bow_sig, bitset<MAX_DATASET_SIZE>& dataset_hit, float* dataset_score)
 {
 	int hitpoint = 0;
 	int misspoint = 0;
     // bin cluster_id | weight
-	vector<bow_bin_object>::const_iterator bow_sig_it;
+	size_t bow_sig_size = bow_sig.size();
 
-	cout << "Non-zero bin count: " << bow_sig.size() << endl;
+	cout << "Non-zero bin count: " << bow_sig_size << endl;
 
 	/*for (bow_sig_it = bow_sig.begin(); bow_sig_it != bow_sig.end(); bow_sig_it++)
     {
@@ -231,55 +229,54 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
     }*/
 
 	// For each cluster_id in bow signature
-    for (bow_sig_it = bow_sig.begin(); bow_sig_it != bow_sig.end(); bow_sig_it++)
+    for (size_t bow_idx = 0; bow_idx != bow_sig_size; bow_idx++)
     {
-		size_t cluster_id = bow_sig_it->cluster_id;
+        bow_bin_object* a_query_bin = bow_sig[bow_idx];
+		size_t cluster_id = a_query_bin->cluster_id;
 
         // Skip on stop list
         if (stop_list[cluster_id])
             continue;
 
-		// bow_sig_it->weight = Normalized tf-idf of this bin
-		float weight = bow_sig_it->weight;
+		// a_query_bin->weight = Normalized tf-idf of this bin
+		float query_weight = a_query_bin->weight;
 
         // Inverted histogram cache hit check
 		if (!inv_cache_hit[cluster_id])
 		{
 			// Caching
-			cache_dataset(cluster_id);
+			cache_at(cluster_id);
 			misspoint++;
 		}
 		else
 			hitpoint++;
 
 		// cluster_id | (dataset id, weight)
-		// foreach cluster_id match, accumulate similarity to each dataset
-		deque<dataset_object>::iterator matched_cluster_it;
-		for (matched_cluster_it = inv_idx_data[cluster_id].begin(); matched_cluster_it != inv_idx_data[cluster_id].end();  matched_cluster_it++)
+		// for each cluster_id match, accumulate similarity to each dataset
+		vector<dataset_object*>& matched_dataset = inv_idx_data[cluster_id];
+		size_t match_size = matched_dataset.size();
+		for (size_t match_idx = 0; match_idx < match_size;  match_idx++)
 		{
+		    dataset_object* a_dataset = matched_dataset[match_idx];
 			// Look if exist video id in result
-			size_t dataset_id = matched_cluster_it->dataset_id;
+			size_t dataset_id = a_dataset->dataset_id;
 			// Histogram intersection
-			float weight_intersected = weight;
-			//cout << "bow weight: " << weight << " cluster_id: " << cluster_id << " dataset_id: " << dataset_id << " db weight: " << (*matched_cluster_it).weight << endl;
-			// matched_cluster_it->weight = Normalized tf-idf of this bin
-			if (weight_intersected > matched_cluster_it->weight)
-				weight_intersected = matched_cluster_it->weight;
+			float intersected_weight = query_weight;
+			// cout << "bow weight: " << query_weight << " cluster_id: " << cluster_id << " dataset_id: " << dataset_id << " db weight: " << a_dataset->weight << endl;
+			// a_dataset->weight = Normalized tf-idf of this bin
+			if (intersected_weight > a_dataset->weight)
+				intersected_weight = a_dataset->weight;
 			dataset_hit[dataset_id] = true;
-			dataset_score[dataset_id] += weight_intersected; // accumulated weight
+			dataset_score[dataset_id] += intersected_weight; // accumulated weight
 
+            // Dump matching if enable
 			if (matching_dump)
 			{
-                vector<feature_object>::const_iterator query_feature_it;
-                for (query_feature_it = bow_sig_it->features.begin(); query_feature_it != bow_sig_it->features.end(); query_feature_it++)
-                {
-                    vector<feature_object>::iterator dataset_feature_it; // feature from inverted_index
-                    for (dataset_feature_it = matched_cluster_it->features.begin(); dataset_feature_it != matched_cluster_it->features.end(); dataset_feature_it++) // foreach feature in a bin
-                    {
-                        // Dump matching if enable
-                        feature_matching_dump(dataset_id, cluster_id, bow_sig_it->weight, dataset_feature_it->x, dataset_feature_it->y, dataset_feature_it->a, dataset_feature_it->b, dataset_feature_it->c, query_feature_it->x, query_feature_it->y, query_feature_it->a, query_feature_it->b, query_feature_it->c);
-                    }
-                }
+			    // for each feature in this bin
+			    //      for each feature in this matched id of a dataset
+                for (size_t query_feature_idx = 0; query_feature_idx < a_query_bin->features.size(); query_feature_idx++)
+                    for (size_t dataset_feature_idx = 0; dataset_feature_idx < a_dataset->features.size(); dataset_feature_idx++)
+                        feature_matching_dump(dataset_id, cluster_id, a_query_bin->weight, a_dataset->features[dataset_feature_idx]->kp, a_query_bin->features[query_feature_idx]->kp);
             }
 		}
     }
@@ -287,7 +284,7 @@ void invert_index::similarity_l1(const vector<bow_bin_object>& bow_sig, bitset<M
     cout << "Total hit: " << hitpoint << " Total miss: " << misspoint << " HitRate: " << setprecision(2) << fixed << 100.0 * hitpoint / (hitpoint + misspoint) << "%" << endl;
 }
 
-void invert_index::similarity_gvp(const vector<bow_bin_object>& bow_sig, bitset<MAX_DATASET_SIZE>& dataset_hit, float dataset_score[], int* sim_param)
+void invert_index::similarity_gvp(const vector<bow_bin_object*>& bow_sig, bitset<MAX_DATASET_SIZE>& dataset_hit, float dataset_score[], int* sim_param)
 {
 	int hitpoint = 0;
 	int misspoint = 0;
@@ -309,10 +306,11 @@ void invert_index::similarity_gvp(const vector<bow_bin_object>& bow_sig, bitset<
 	// Phase 1
 	// Calculating feature motion
 	//cout << "Phase 1, calculating feature motion.."; cout.flush();
-	vector<bow_bin_object>::const_iterator bow_sig_it;
-	for (bow_sig_it = bow_sig.begin(); bow_sig_it != bow_sig.end(); bow_sig_it++) // foreach bin
+	size_t bow_sig_size = bow_sig.size();
+	for (size_t bow_idx = 0; bow_idx != bow_sig_size; bow_idx++)
     {
-        size_t cluster_id = bow_sig_it->cluster_id;
+        bow_bin_object* a_query_bin = bow_sig[bow_idx];
+        size_t cluster_id = a_query_bin->cluster_id;
 
         // Skip on stop list
         if (stop_list[cluster_id])
@@ -322,7 +320,7 @@ void invert_index::similarity_gvp(const vector<bow_bin_object>& bow_sig, bitset<
         if(!inv_cache_hit[cluster_id])
         {
             // Caching
-            cache_dataset(cluster_id);
+            cache_at(cluster_id);
             misspoint++;
         }
         else
@@ -330,24 +328,28 @@ void invert_index::similarity_gvp(const vector<bow_bin_object>& bow_sig, bitset<
 
         // Calculating many-to-many feature from query to matched dataset
         // From query
-        vector<feature_object>::const_iterator query_feature_it;
-        for (query_feature_it = bow_sig_it->features.begin(); query_feature_it != bow_sig_it->features.end(); query_feature_it++)
+        size_t query_feature_size = a_query_bin->features.size();
+        for (size_t query_feature_idx = 0; query_feature_idx < query_feature_size; query_feature_idx++)
         {
+            feature_object* a_query_feature = a_query_bin->features[query_feature_idx];
+
             // To matched dataset
-            deque<dataset_object>::iterator matched_cluster_it;
-            // in the matched cluster
-            for (matched_cluster_it = inv_idx_data[cluster_id].begin(); matched_cluster_it != inv_idx_data[cluster_id].end();  matched_cluster_it++)
+            vector<dataset_object*>& matched_dataset = inv_idx_data[cluster_id];
+            size_t match_size = matched_dataset.size();
+            for (size_t match_idx = 0; match_idx < match_size;  match_idx++)
             {
+                dataset_object* a_dataset = matched_dataset[match_idx];
                 // to all features of each dataset
-                size_t dataset_id = matched_cluster_it->dataset_id;
-                vector<feature_object>::iterator dataset_feature_it; // feature from inverted_index
-                for (dataset_feature_it = matched_cluster_it->features.begin(); dataset_feature_it != matched_cluster_it->features.end(); dataset_feature_it++) // foreach feature in a bin
+                size_t dataset_id = a_dataset->dataset_id;
+                size_t dataset_feature_size = a_dataset->features.size();
+                for (size_t dataset_feature_idx = 0; dataset_feature_idx < dataset_feature_size; dataset_feature_idx++)
                 {
-                    gvp_processor.calc_motion(dataset_id, bow_sig_it->weight, idf[cluster_id], dataset_feature_it->x, dataset_feature_it->y, query_feature_it->x, query_feature_it->y);
+                    feature_object* a_dataset_feature = a_dataset->features[dataset_feature_idx];
+                    gvp_processor.calc_motion(dataset_id, a_query_bin->weight, idf[cluster_id], a_dataset_feature->kp, a_query_feature->kp);
 
                     // Dump matching if enable
                     if (matching_dump)
-                        feature_matching_dump(dataset_id, cluster_id, bow_sig_it->weight, dataset_feature_it->x, dataset_feature_it->y, dataset_feature_it->a, dataset_feature_it->b, dataset_feature_it->c, query_feature_it->x, query_feature_it->y, query_feature_it->a, query_feature_it->b, query_feature_it->c);
+                        feature_matching_dump(dataset_id, cluster_id, a_query_bin->weight, a_dataset_feature->kp, a_query_feature->kp);
                 }
 
                 // Flag existing in dataset_hit
@@ -417,7 +419,7 @@ void invert_index::start_matching_dump(const string& dataset_root_dir, const vec
     }
 }
 
-void invert_index::feature_matching_dump(size_t dataset_id, size_t cluster_id, float weight, float dataset_kp_x, float dataset_kp_y, float dataset_kp_a, float dataset_kp_b, float dataset_kp_c, float query_kp_x, float query_kp_y, float query_kp_a, float query_kp_b, float query_kp_c)
+void invert_index::feature_matching_dump(const size_t dataset_id, const size_t cluster_id, const float weight, const float* dataset_kp, const float* query_kp)
 {
     string dump_name = _matching_path + "/" +  get_filename(_query_path) + "_" + _ImgLists[dataset_id] + ".matches";
 
@@ -427,8 +429,8 @@ void invert_index::feature_matching_dump(size_t dataset_id, size_t cluster_id, f
         // cluster_id, dataset xyabc, query xyabc
         stringstream dump_data;
         dump_data << cluster_id << " " << weight << " "
-        << dataset_kp_x << " " << dataset_kp_y << " " << dataset_kp_a << " " << dataset_kp_b << " " << dataset_kp_c << " "
-        << query_kp_x << " " << query_kp_y << " " << query_kp_a << " " << query_kp_b << " " << query_kp_c << endl;
+        << dataset_kp[0] << " " << dataset_kp[1] << " " << dataset_kp[2] << " " << dataset_kp[3] << " " << dataset_kp[4] << " "
+        << query_kp[0] << " " << query_kp[1] << " " << query_kp[2] << " " << query_kp[3] << " " << query_kp[4] << endl;
 
         text_write(dump_name, dump_data.str(), true);
     }
@@ -442,7 +444,7 @@ void invert_index::stop_matching_dump()
 void invert_index::update_idf()
 {
     // idf
-    for (size_t cluster_id = 0; cluster_id < CLUSTER_SIZE; cluster_id++)
+    for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
     {
         // If df != 0
         if (actual_cluster_amount[cluster_id])
@@ -452,30 +454,35 @@ void invert_index::update_idf()
     }
 }
 
-float invert_index::get_idf(size_t cluster_id)
+float invert_index::get_idf_at(const size_t cluster_id)
 {
     return idf[cluster_id];
 }
 
-void invert_index::get_idf_ref(float *&ref_idf)
+float* invert_index::get_idf()
 {
-    ref_idf = idf;
+    return idf;
+}
+
+void invert_index::flush_invfile()
+{
+
 }
 
 void invert_index::save_invfile()
 {
 	// Save invert_index Header
-	ofstream iv_header_File ((inv_file_path + "/invertedhist.def").c_str(), ios::binary);
+	ofstream iv_header_File (run_param.invdef_path.c_str(), ios::binary);
 	if (iv_header_File.is_open())
 	{
         // Save dataset_size
         iv_header_File.write(reinterpret_cast<char*>(&dataset_size), sizeof(dataset_size));
 
 		// Save cluster_amount
-		iv_header_File.write(reinterpret_cast<char*>(&actual_cluster_amount[0]), CLUSTER_SIZE * sizeof(actual_cluster_amount[0]));
+		iv_header_File.write(reinterpret_cast<char*>(&actual_cluster_amount[0]), run_param.CLUSTER_SIZE * sizeof(actual_cluster_amount[0]));
 
 		// Save idf
-		iv_header_File.write(reinterpret_cast<char*>(&idf[0]), CLUSTER_SIZE * sizeof(idf[0]));
+		iv_header_File.write(reinterpret_cast<char*>(&idf[0]), run_param.CLUSTER_SIZE * sizeof(idf[0]));
 
 		// Close file
 		iv_header_File.close();
@@ -483,31 +490,29 @@ void invert_index::save_invfile()
 
 	// Save invert_index Data
 
-	// Partitionning
-	size_t partition_size = CLUSTER_SIZE / DB_MAX_PARTITION;
-	int partition_digit_length = (int)log10(DB_MAX_PARTITION);
-	int file_digit_length = (int)ceil(log10(partition_size));
-
 	// Prepare partition directory
 	/*
 	for (size_t partition_idx = 0; partition_idx < DB_MAX_PARTITION; partition_idx++)
 	{
 		string partition_path;
-		// inv_file_path/00
-		partition_path = inv_file_path + "/" + ZeroPadNumber(partition_idx, partition_digit_length);
+		// run_param.inv_path/00
+		partition_path = run_param.inv_path + "/" + ZeroPadNumber(partition_idx, partition_digit_length);
 		make_dir_available(partition_path);
 	}*/
 	// Faster by mkdir 0{0..9} && mkdir {10..99}
-	string cmd = "ssh `hostname` \"mkdir -m 755 -p " + inv_file_path + "/0{0..9}\"";
+	string cmd = "ssh `hostname` \"mkdir -m 755 -p " + run_param.inv_path + "/0{0..9}\"";
 	//cout << "Running script.. " << cmd << endl;
 	exec(cmd);
-	cmd = "ssh `hostname` \"mkdir -m 755 -p " + inv_file_path + "/{10..99}\"";
+	cmd = "ssh `hostname` \"mkdir -m 755 -p " + run_param.inv_path + "/{10..99}\"";
 	//cout << "Running script.. " << cmd << endl;
 	exec(cmd);
 	//cin.get();
 
+    // Time check
+    timespec start_time = CurrentPreciseTime();
+
 	// Write data
-	for (size_t cluster_id = 0; cluster_id != CLUSTER_SIZE; cluster_id++)
+	for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
 	{
 		// Calc cluster size
 		stringstream partition_path;
@@ -516,7 +521,7 @@ void invert_index::save_invfile()
 		// Dir = cluster_id / partition_size = 234567 / 10000 = 23.xxx = 23
 		// Filename = cluster_id % partition_size = 234567 % 10000 = 4567
 		// DigitMax = log10(num) + 1
-		partition_path << inv_file_path << "/" << ZeroPadNumber(cluster_id / partition_size, partition_digit_length);
+		partition_path << run_param.inv_path << "/" << ZeroPadNumber(cluster_id / partition_size, partition_digit_length);
 		data_path << partition_path.str() << "/" << ZeroPadNumber(cluster_id % partition_size, file_digit_length) << ".dat";
 
         // Prevent collision (debug)
@@ -538,41 +543,42 @@ void invert_index::save_invfile()
 			// Save inv_idx_data
 			// Using deque is not contineous memory, write it block by block
 			// iv_data_File.write(reinterpret_cast<char*>(&*(inv_idx_data[cluster_id].begin())), inv_idx_data[cluster_id].size() * sizeof(*(inv_idx_data[cluster_id].begin()))); //works if vector
-			deque<dataset_object>::iterator inv_idx_data_it;
-			for (inv_idx_data_it = inv_idx_data[cluster_id].begin(); inv_idx_data_it != inv_idx_data[cluster_id].end(); inv_idx_data_it++)
-			{
+            vector<dataset_object*> dataset_list = inv_idx_data[cluster_id];
+            size_t dataset_list_size = dataset_list.size();
+            for (size_t dataset_idx = 0; dataset_idx < dataset_list_size; dataset_idx++)
+            {
+                dataset_object* dataset = dataset_list[dataset_idx];
+                size_t feature_size = dataset->features.size();
 
-				// Write int dataset_id
-				iv_data_File.write(reinterpret_cast<char*>(&(inv_idx_data_it->dataset_id)), sizeof(inv_idx_data_it->dataset_id));
+                // Write int dataset_id
+				iv_data_File.write(reinterpret_cast<char*>(&(dataset->dataset_id)), sizeof(dataset->dataset_id));
 				// Write float weight
-				iv_data_File.write(reinterpret_cast<char*>(&(inv_idx_data_it->weight)), sizeof(inv_idx_data_it->weight));
-				// Write feature_amount
-				size_t feature_amount = inv_idx_data_it->features.size();
-				iv_data_File.write(reinterpret_cast<char*>(&feature_amount), sizeof(feature_amount));
+				iv_data_File.write(reinterpret_cast<char*>(&(dataset->weight)), sizeof(dataset->weight));
+				// Write feature_size
+				iv_data_File.write(reinterpret_cast<char*>(&feature_size), sizeof(feature_size));
 				// Write vector<feature_object>
-				vector<feature_object>::iterator feature_it;
-				for (feature_it = inv_idx_data_it->features.begin(); feature_it != inv_idx_data_it->features.end(); feature_it++)
-				{
+
+                for (size_t feature_idx = 0; feature_idx < feature_size; feature_idx++)
+                {
+                    feature_object* feature = dataset->features[feature_idx];
                     // Write feature_id
-                    iv_data_File.write(reinterpret_cast<char*>(&(feature_it->feature_id)), sizeof(feature_it->feature_id));
-                    // Write x
-                    iv_data_File.write(reinterpret_cast<char*>(&(feature_it->x)), sizeof(feature_it->x));
-                    // Write y
-                    iv_data_File.write(reinterpret_cast<char*>(&(feature_it->y)), sizeof(feature_it->y));
-                    // Write a
-                    iv_data_File.write(reinterpret_cast<char*>(&(feature_it->a)), sizeof(feature_it->a));
-                    // Write b
-                    iv_data_File.write(reinterpret_cast<char*>(&(feature_it->b)), sizeof(feature_it->b));
-                    // Write c
-                    iv_data_File.write(reinterpret_cast<char*>(&(feature_it->c)), sizeof(feature_it->c));
+                    iv_data_File.write(reinterpret_cast<char*>(&(feature->feature_id)), sizeof(feature->feature_id));
+                    // Write x y a b c
+                    iv_data_File.write(reinterpret_cast<char*>(feature->kp), SIFThesaff::GetSIFTHeadSize() * sizeof(*(feature->kp)));
                 }
 			}
 			// Close file
 			iv_data_File.close();
-
-            percentout(cluster_id, CLUSTER_SIZE, 10);
 		}
+
+        //percentout(cluster_id, run_param.CLUSTER_SIZE, 10);
+        percentout_timeleft(cluster_id, 0, run_param.CLUSTER_SIZE, start_time, 20);
 	}
+}
+
+void invert_index::update_invfile()
+{
+
 }
 
 void invert_index::load_invfile(int top)
@@ -581,99 +587,40 @@ void invert_index::load_invfile(int top)
 	top_cache = top;
 
 	// Reset inv_cache_hit and iMemLookupTable
-	for(size_t idx = 0; idx < CLUSTER_SIZE; idx++)
+	for(size_t idx = 0; idx < run_param.CLUSTER_SIZE; idx++)
 		inv_cache_hit[idx] = false;
 	// Calc max index to load from ordered CLS
-	size_t max_load_idx = CLUSTER_SIZE * top_cache / 100;
+	size_t max_load_idx = run_param.CLUSTER_SIZE * top_cache / 100;
 
-	// Load x percent of class into memory, and flag on iLookupFlag and inv_cache_hit
-	size_t partition_size = CLUSTER_SIZE / DB_MAX_PARTITION;
-	int partition_digit_length = (int)log10(DB_MAX_PARTITION);
-	int file_digit_length = (int)ceil(log10(partition_size));
-
+    // Load x percent of total cluster into memory, and flag at inv_cache_hit[cluster_id]
 	for (size_t fetch_cluster_idx = 0; fetch_cluster_idx < max_load_idx; fetch_cluster_idx++)
 	{
-		stringstream partition_path;
-		stringstream data_path;
 
+        // Load from higher frequent cluster to lower frequent cluster
 		size_t cluster_id = cluster_amount_sorted[fetch_cluster_idx].first;
-		size_t cluster_count = cluster_amount_sorted[fetch_cluster_idx].second;
 
-        // Skip on stop list
-        if (stop_list[cluster_id])
-            continue;
-
-		partition_path << inv_file_path << "/" << ZeroPadNumber(cluster_id / partition_size, partition_digit_length);
-		data_path << partition_path.str() << "/" << ZeroPadNumber(cluster_id % partition_size, file_digit_length) << ".dat";
-		//cout << "Data dir: " << partition_path.str() << endl;
-		//cout << "Data path: " << data_path.str() << " Length: " << cluster_amount_sorted[fetch_cluster_idx].second << endl;
-
-		// Load inv_idx_data
-		ifstream iv_data_File (data_path.str().c_str(), ios::binary);
-		if (iv_data_File)
-		{
-			// Set Mem Mapped flag
-			inv_cache_hit[cluster_id] = true;
-
-            // Read dataset data
-			for (size_t dataset_index = 0; dataset_index < cluster_count; dataset_index++)
-			{
-                dataset_object read_dataset;
-                // Read dataset_id
-				iv_data_File.read((char*)(&(read_dataset.dataset_id)), sizeof(read_dataset.dataset_id));
-				// Read weight
-				iv_data_File.read((char*)(&(read_dataset.weight)), sizeof(read_dataset.weight));
-				// Read feature_amount
-				size_t feature_amount = 0;
-				iv_data_File.read((char*)(&feature_amount), sizeof(feature_amount));
-				for (size_t feature_index = 0; feature_index < feature_amount; feature_index++)
-				{
-                    feature_object read_feature;
-                    // Read feature_id
-                    iv_data_File.read((char*)(&(read_feature.feature_id)), sizeof(read_feature.feature_id));
-                    // Read x
-                    iv_data_File.read((char*)(&(read_feature.x)), sizeof(read_feature.x));
-                    // Read y
-                    iv_data_File.read((char*)(&(read_feature.y)), sizeof(read_feature.y));
-                    // Read a
-                    iv_data_File.read((char*)(&(read_feature.a)), sizeof(read_feature.a));
-                    // Read b
-                    iv_data_File.read((char*)(&(read_feature.b)), sizeof(read_feature.b));
-                    // Read c
-                    iv_data_File.read((char*)(&(read_feature.c)), sizeof(read_feature.c));
-
-                    // Keep feature
-                    read_dataset.features.push_back(read_feature);
-				}
-				inv_idx_data[cluster_id].push_back(read_dataset);
-			}
-
-			// Close file
-			iv_data_File.close();
-		}
+        // Load if this cluster_id not appear in stop list
+        if (!stop_list[cluster_id])
+            cache_at(cluster_id);
 
         percentout(fetch_cluster_idx, max_load_idx, 10);
 	}
 }
 
-void invert_index::cache_dataset(size_t cluster_id)
+void invert_index::cache_at(size_t cluster_id)
 {
-	size_t partition_size = CLUSTER_SIZE / DB_MAX_PARTITION;
-	int partition_digit_length = (int)log10(DB_MAX_PARTITION);
-	int file_digit_length = (int)ceil(log10(partition_size));
-
 	stringstream partition_path;
 	stringstream data_path;
 
-	size_t cluster_count = actual_cluster_amount[cluster_id];
+    partition_path << run_param.inv_path << "/" << ZeroPadNumber(cluster_id / partition_size, partition_digit_length);
+    data_path << partition_path.str() << "/" << ZeroPadNumber(cluster_id % partition_size, file_digit_length) << ".dat";
+    //cout << "Data dir: " << partition_path.str() << endl;
+    //cout << "Data path: " << data_path.str() << " Length: " << cluster_amount_sorted[cluster_id].second << endl;
 
-	partition_path << inv_file_path << "/" << ZeroPadNumber(cluster_id / partition_size, partition_digit_length);
-	data_path << partition_path.str() << "/" << ZeroPadNumber(cluster_id % partition_size, file_digit_length) << ".dat";
-	//cout << "Data dir: " << partition_path.str() << endl;
-	//cout << "Data path: " << data_path.str() << endl;
+	size_t cluster_count = cluster_amount_sorted[cluster_id].second;
 
-	// Load inv_idx_data
-	ifstream iv_data_File (data_path.str().c_str(), ios::binary);
+    // Load inv_idx_data
+    ifstream iv_data_File (data_path.str().c_str(), ios::binary);
     if (iv_data_File)
     {
         // Set Mem Mapped flag
@@ -682,32 +629,27 @@ void invert_index::cache_dataset(size_t cluster_id)
         // Read dataset data
         for (size_t dataset_index = 0; dataset_index < cluster_count; dataset_index++)
         {
-            dataset_object read_dataset;
+            dataset_object* read_dataset = new dataset_object();
             // Read dataset_id
-            iv_data_File.read((char*)(&(read_dataset.dataset_id)), sizeof(read_dataset.dataset_id));
+            iv_data_File.read((char*)(&(read_dataset->dataset_id)), sizeof(read_dataset->dataset_id));
             // Read weight
-            iv_data_File.read((char*)(&(read_dataset.weight)), sizeof(read_dataset.weight));
-            // Read feature_amount
-            size_t feature_amount = 0;
-            iv_data_File.read((char*)(&feature_amount), sizeof(feature_amount));
-            for (size_t feature_index = 0; feature_index < feature_amount; feature_index++)
+            iv_data_File.read((char*)(&(read_dataset->weight)), sizeof(read_dataset->weight));
+            // Read feature_size
+            size_t feature_size = 0;
+            iv_data_File.read((char*)(&feature_size), sizeof(feature_size));
+            for (size_t feature_idx = 0; feature_idx < feature_size; feature_idx++)
             {
-                feature_object read_feature;
+                feature_object* read_feature = new feature_object();
                 // Read feature_id
-                iv_data_File.read((char*)(&(read_feature.feature_id)), sizeof(read_feature.feature_id));
-                // Read x
-                iv_data_File.read((char*)(&(read_feature.x)), sizeof(read_feature.x));
-                // Read y
-                iv_data_File.read((char*)(&(read_feature.y)), sizeof(read_feature.y));
-                // Read a
-                iv_data_File.read((char*)(&(read_feature.a)), sizeof(read_feature.a));
-                // Read b
-                iv_data_File.read((char*)(&(read_feature.b)), sizeof(read_feature.b));
-                // Read c
-                iv_data_File.read((char*)(&(read_feature.c)), sizeof(read_feature.c));
+                iv_data_File.read((char*)(&(read_feature->feature_id)), sizeof(read_feature->feature_id));
+                // Read x y a b c
+                int head_size = SIFThesaff::GetSIFTHeadSize();
+                read_feature->kp = new float[head_size];
+                for (int head_idx = 0; head_idx < head_size; head_idx++)
+                    iv_data_File.read((char*)(&(read_feature->kp[head_idx])), sizeof(*(read_feature->kp)));
 
                 // Keep feature
-                read_dataset.features.push_back(read_feature);
+                read_dataset->features.push_back(read_feature);
             }
             inv_idx_data[cluster_id].push_back(read_dataset);
         }
@@ -724,21 +666,36 @@ void invert_index::update_cache_status(size_t index)
     // mfu_cache_freq
 }
 
-void invert_index::reset(void)
+void invert_index::release_memory(void)
 {
-    if (cluster_amount_sorted.size() > 0)
+    // Release temporary memory
+    if (dataset_size)
     {
         dataset_size = 0;
-        for (size_t cluster_id = 0; cluster_id < CLUSTER_SIZE; cluster_id++)
+        for (size_t word_id = 0; word_id < run_param.CLUSTER_SIZE; word_id++)
         {
-            inv_cache_hit[cluster_id] = false;
-            actual_cluster_amount[cluster_id] = 0;
-            idf[cluster_id] = 0.0f;
-            for (size_t dataset_object_id = 0; dataset_object_id < inv_idx_data[cluster_id].size(); dataset_object_id++)
-                inv_idx_data[cluster_id][dataset_object_id].features.clear();
-            inv_idx_data[cluster_id].clear();
+            //stop_list[word_id] = false;        // not necessary
+            //inv_cache_hit[word_id] = false;
+
+            // Release Inverted index
+            size_t doc_size = inv_idx_data[word_id].size();
+            for (size_t doc_idx = 0; doc_idx < doc_size; doc_idx++)
+            {
+                for (size_t feature_idx = 0; feature_idx < inv_idx_data[word_id][doc_idx]->features.size(); feature_idx++)
+                {
+                    delete[] inv_idx_data[word_id][doc_idx]->features[feature_idx]->kp;         // delete float* kp[]
+                    delete inv_idx_data[word_id][doc_idx]->features[feature_idx];               // delete feature_object*
+                }
+                inv_idx_data[word_id][doc_idx]->features.clear();
+                delete inv_idx_data[word_id][doc_idx];                                          // delete dataset_object*
+            }
+            inv_idx_data[word_id].clear();
         }
         cluster_amount_sorted.clear();
+
+        delete[] actual_cluster_amount;
+        delete[] idf;
+        delete[] inv_idx_data;                                                                      // delete vector<dataset_object*>*
 	}
 }
 

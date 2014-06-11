@@ -30,18 +30,18 @@ bow::~bow(void)
 }
 
 // Tools
-void bow::masking(vector<bow_bin_object>& bow_sig)
+void bow::masking(vector<bow_bin_object*>& bow_sig)
 {
     /// Traversing BOW
     for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
     {
         /// Clear weight
-        bow_sig[bin_idx].weight = 0.0f;
+        bow_sig[bin_idx]->weight = 0.0f;
 
         /// Mask pass checking
-        for (size_t feature_idx = 0; feature_idx < bow_sig[bin_idx].features.size(); feature_idx++)
+        for (size_t feature_idx = 0; feature_idx < bow_sig[bin_idx]->features.size(); feature_idx++)
         {
-            // Checking bow_sig[bin_idx].features[feature_idx]
+            // Checking bow_sig[bin_idx]->features[feature_idx]
             // Check with different mask mode, and return result to kp_pass, with weight kp_weight
             bool kp_pass = false;
             float kp_weight = 0.0f;
@@ -51,65 +51,78 @@ void bow::masking(vector<bow_bin_object>& bow_sig)
                 /// If not pass, remove this feature
                 // Ref: http://www.cplusplus.com/forum/general/42121/
                 // if not pass, do fast removing vector element, the original data order will be lost
-                swap(bow_sig[bin_idx].features[feature_idx], bow_sig[bin_idx].features.back());     // swap to back
-                bow_sig[bin_idx].features.pop_back();                                               // remove back
+                swap(bow_sig[bin_idx]->features[feature_idx], bow_sig[bin_idx]->features.back());   // swap to back
+
+                // Release memory of this back() feature before being removed
+                delete[] bow_sig[bin_idx]->features.back()->kp;
+                delete bow_sig[bin_idx]->features.back();
+
+                bow_sig[bin_idx]->features.pop_back();                                              // remove back
             }
             else
             {
                 /// If pass, accumulating weight (raw weight without tf)
-                bow_sig[bin_idx].weight += kp_weight;
+                bow_sig[bin_idx]->weight += kp_weight;
             }
         }
 
         /// If all features fail, remove this bin
-        if (bow_sig[bin_idx].features.size() == 0)
+        if (bow_sig[bin_idx]->features.size() == 0)
         {
             swap(bow_sig[bin_idx], bow_sig.back());     // swap to back
+
+            // Release memory of this bow_bin_object before being remove
+            delete bow_sig.back();
+
             bow_sig.pop_back();                         // remove back
         }
     }
 }
 
-void bow::logtf_unitnormalize(vector<bow_bin_object>& bow_sig)
+void bow::logtf_unitnormalize(vector<bow_bin_object*>& bow_sig)
 {
+    size_t bow_sig_size = bow_sig.size();
+
     /// tf
-    for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
-        bow_sig[bin_idx].weight = 1 + log10(bow_sig[bin_idx].weight);   // tf = 1 + log10(weight)
+    for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
+        bow_sig[bin_idx]->weight = 1 + log10(bow_sig[bin_idx]->weight);   // tf = 1 + log10(weight)
 
     /// Normalization
     // Unit length
     float sum_of_square = 0.0f;
     float unit_length = 0.0f;
-    for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
-        sum_of_square += bow_sig[bin_idx].weight * bow_sig[bin_idx].weight;
+    for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
+        sum_of_square += bow_sig[bin_idx]->weight * bow_sig[bin_idx]->weight;
     unit_length = sqrt(sum_of_square);
 
     // Normalizing
-    for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
-        bow_sig[bin_idx].weight = bow_sig[bin_idx].weight / unit_length;
+    for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
+        bow_sig[bin_idx]->weight = bow_sig[bin_idx]->weight / unit_length;
 }
 
-void bow::logtf_idf_unitnormalize(vector<bow_bin_object>& bow_sig, const float idf[])
+void bow::logtf_idf_unitnormalize(vector<bow_bin_object*>& bow_sig, const float* idf)
 {
+    size_t bow_sig_size = bow_sig.size();
+
     /// tf-idf
-    for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
-        bow_sig[bin_idx].weight = (1 + log10(bow_sig[bin_idx].weight)) * idf[bow_sig[bin_idx].cluster_id];   // tf-idf = (1 + log10(weight)) * idf[cluster_id]
+    for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
+        bow_sig[bin_idx]->weight = (1 + log10(bow_sig[bin_idx]->weight)) * idf[bow_sig[bin_idx]->cluster_id];   // tf-idf = (1 + log10(weight)) * idf[cluster_id]
 
     /// Normalization
     // Unit length
     float sum_of_square = 0.0f;
     float unit_length = 0.0f;
-    for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
-        sum_of_square += bow_sig[bin_idx].weight * bow_sig[bin_idx].weight;
+    for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
+        sum_of_square += bow_sig[bin_idx]->weight * bow_sig[bin_idx]->weight;
     unit_length = sqrt(sum_of_square);
 
     // Normalizing
-    for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
-        bow_sig[bin_idx].weight = bow_sig[bin_idx].weight / unit_length;
+    for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
+        bow_sig[bin_idx]->weight = bow_sig[bin_idx]->weight / unit_length;
 }
 
 // BoW (build per image)
-void bow::build_bow(const vector<int>& quantized_indices, const vector< vector<float> >& keypoints)
+void bow::build_bow(const int* quantized_indices, const vector<float*>& keypoints)
 {
     /// Building Bow
     /*cout << "quantized_indices.size(): " << quantized_indices.size() << " keypoints.size(): " << keypoints.size() << endl;
@@ -121,7 +134,7 @@ void bow::build_bow(const vector<int>& quantized_indices, const vector< vector<f
     bool* non_zero_bin = new bool[run_param.CLUSTER_SIZE];
     for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
         non_zero_bin[cluster_id] = false;
-    unordered_map<size_t, vector<feature_object> > curr_sparse_bow; // sparse of feature
+    unordered_map<size_t, vector<feature_object*> > curr_sparse_bow; // sparse of feature
     size_t current_feature_amount = keypoints.size();
     //cout << "current_feature_amount: " << current_feature_amount << " ";
     for (size_t feature_id = 0; feature_id < current_feature_amount; feature_id++)
@@ -133,44 +146,35 @@ void bow::build_bow(const vector<int>& quantized_indices, const vector< vector<f
         non_zero_bin[cluster_id] = true;
 
         // Create new feature object with feature_id and spatial information, x,y,a,b,c
-        feature_object feature;
-        feature.feature_id  = feature_id;
-        feature.x           = keypoints[feature_id][0];
-        feature.y           = keypoints[feature_id][1];
-        feature.a           = keypoints[feature_id][2];
-        feature.b           = keypoints[feature_id][3];
-        feature.c           = keypoints[feature_id][4];
+        feature_object* feature = new feature_object();
+        feature->feature_id  = feature_id;
+        feature->kp = keypoints[feature_id]; // pointer to x y a b c    // <---- Memory create externally
 
         // Keep new feature into its corresponding bin (cluster_id)
         curr_sparse_bow[cluster_id].push_back(feature);
     }
 
     /// Building a compact bow
-    vector<bow_bin_object> curr_compact_bow;
-    for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
+    vector<bow_bin_object*> curr_compact_bow;
+    unordered_map<size_t, vector<feature_object*> >::iterator spare_bow_it;
+    for (spare_bow_it = curr_sparse_bow.begin(); spare_bow_it != curr_sparse_bow.end(); spare_bow_it++)
     {
-        // Looking for non-zero bin of cluster,
-        // then put that bin together in curr_compact_bow by specified cluster_id
-        if (non_zero_bin[cluster_id])
-        {
-            // Create new bin with cluster_id, frequency, and its features
-            bow_bin_object bow_bin;
-            bow_bin.cluster_id = cluster_id;
+        // For each non-zero bin of cluster,
+        // Create new bin with cluster_id, frequency, and its features
+        bow_bin_object* bow_bin = new bow_bin_object();
+        bow_bin->cluster_id = spare_bow_it->first;
 
-            // Raw weight (without tf)
-            bow_bin.weight = curr_sparse_bow[cluster_id].size();
-            bow_bin.features.swap(curr_sparse_bow[cluster_id]);
+        // Raw weight (without tf)
+        bow_bin->weight = spare_bow_it->second.size();
+        bow_bin->features.swap(spare_bow_it->second);
 
-            // Keep new bin into compact_bow
-            curr_compact_bow.push_back(bow_bin);
-        }
+        // Keep new bin into compact_bow
+        curr_compact_bow.push_back(bow_bin);
     }
-
     //cout << "curr_compact_bow.size(): " << curr_compact_bow.size() << " ";
 
     /// Keep compact bow together in multi_bow
     multi_bow.push_back(curr_compact_bow);
-
     //cout << "multi_bow.size(): " << multi_bow.size() << endl;
 
     /// Release memory
@@ -178,7 +182,7 @@ void bow::build_bow(const vector<int>& quantized_indices, const vector< vector<f
     //curr_sparse_bow.clear();
 }
 
-void bow::get_bow(vector<bow_bin_object>& bow_sig)
+void bow::get_bow(vector<bow_bin_object*>& bow_sig)
 {
     // Pooling then return bow
     pooling(bow_sig);
@@ -245,41 +249,30 @@ void bow::flush_bow(bool append)
             for (size_t bin_id = 0; bin_id < bin_count; bin_id++)
             {
                 // Cluster ID
-                size_t cluster_id = multi_bow[bow_idx][bin_id].cluster_id;
+                size_t cluster_id = multi_bow[bow_idx][bin_id]->cluster_id;
                 OutFile.write(reinterpret_cast<char*>(&cluster_id), sizeof(cluster_id));
                 curr_bow_offset += sizeof(cluster_id);
 
                 // Weight
-                float weight = multi_bow[bow_idx][bin_id].weight;
+                float weight = multi_bow[bow_idx][bin_id]->weight;
                 OutFile.write(reinterpret_cast<char*>(&weight), sizeof(weight));
                 curr_bow_offset += sizeof(weight);
 
                 // Feature Count
-                size_t feature_count = multi_bow[bow_idx][bin_id].features.size();
+                size_t feature_count = multi_bow[bow_idx][bin_id]->features.size();
                 OutFile.write(reinterpret_cast<char*>(&feature_count), sizeof(feature_count));
                 curr_bow_offset += sizeof(feature_count);
                 for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
                 {
                     // Write all features from bin
-                    feature_object feature = multi_bow[bow_idx][bin_id].features[bow_feature_id];
+                    feature_object* feature = multi_bow[bow_idx][bin_id]->features[bow_feature_id];
                     // Feature ID
-                    OutFile.write(reinterpret_cast<char*>(&(feature.feature_id)), sizeof(feature.feature_id));
-                    curr_bow_offset += sizeof(feature.feature_id);
-                    // x
-                    OutFile.write(reinterpret_cast<char*>(&(feature.x)), sizeof(feature.x));
-                    curr_bow_offset += sizeof(feature.x);
-                    // y
-                    OutFile.write(reinterpret_cast<char*>(&(feature.y)), sizeof(feature.y));
-                    curr_bow_offset += sizeof(feature.y);
-                    // a
-                    OutFile.write(reinterpret_cast<char*>(&(feature.a)), sizeof(feature.a));
-                    curr_bow_offset += sizeof(feature.a);
-                    // b
-                    OutFile.write(reinterpret_cast<char*>(&(feature.b)), sizeof(feature.b));
-                    curr_bow_offset += sizeof(feature.b);
-                    // c
-                    OutFile.write(reinterpret_cast<char*>(&(feature.c)), sizeof(feature.c));
-                    curr_bow_offset += sizeof(feature.c);
+                    OutFile.write(reinterpret_cast<char*>(&(feature->feature_id)), sizeof(feature->feature_id));
+                    curr_bow_offset += sizeof(feature->feature_id);
+                    // x y a b c
+                    int head_size = SIFThesaff::GetSIFTHeadSize();
+                    OutFile.write(reinterpret_cast<char*>(feature->kp), head_size * sizeof(*(feature->kp)));
+                    curr_bow_offset += head_size * sizeof(*(feature->kp));
                 }
             }
         }
@@ -305,7 +298,7 @@ void bow::load_bow_offset()
     bow_offset_ready = true;
 }
 
-bool bow::load_specific_bow(size_t image_id, vector<bow_bin_object>& bow_sig)
+bool bow::load_specific_bow(size_t image_id, vector<bow_bin_object*>& bow_sig)
 {
     if (!bow_offset_ready)
         load_bow_offset();
@@ -323,7 +316,7 @@ bool bow::load_specific_bow(size_t image_id, vector<bow_bin_object>& bow_sig)
         InFile.read((char*)(&dataset_id_read), sizeof(dataset_id_read));
 
         // Dataset bow
-        vector<bow_bin_object> read_bow;
+        vector<bow_bin_object*> read_bow;
 
         // Non-zero count
         size_t bin_count;
@@ -332,35 +325,30 @@ bool bow::load_specific_bow(size_t image_id, vector<bow_bin_object>& bow_sig)
         // ClusterID and FeatureIDs
         for (size_t bin_idx = 0; bin_idx < bin_count; bin_idx++)
         {
-            bow_bin_object read_bin;
+            bow_bin_object* read_bin = new bow_bin_object();
 
             // Cluster ID
-            InFile.read((char*)(&(read_bin.cluster_id)), sizeof(read_bin.cluster_id));
+            InFile.read((char*)(&(read_bin->cluster_id)), sizeof(read_bin->cluster_id));
 
             // Weight
-            InFile.read((char*)(&(read_bin.weight)), sizeof(read_bin.weight));
+            InFile.read((char*)(&(read_bin->weight)), sizeof(read_bin->weight));
 
             // Feature count
             size_t feature_count;
             InFile.read((char*)(&feature_count), sizeof(feature_count));
             for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
             {
-                feature_object feature;
+                feature_object* feature = new feature_object();
 
                 // Feature ID
-                InFile.read((char*)(&(feature.feature_id)), sizeof(feature.feature_id));
-                // x
-                InFile.read((char*)(&(feature.x)), sizeof(feature.x));
-                // y
-                InFile.read((char*)(&(feature.y)), sizeof(feature.y));
-                // a
-                InFile.read((char*)(&(feature.a)), sizeof(feature.a));
-                // b
-                InFile.read((char*)(&(feature.b)), sizeof(feature.b));
-                // c
-                InFile.read((char*)(&(feature.c)), sizeof(feature.c));
+                InFile.read((char*)(&(feature->feature_id)), sizeof(feature->feature_id));
+                // x y a b c
+                int head_size = SIFThesaff::GetSIFTHeadSize();
+                feature->kp = new float[head_size];
+                for (int head_idx = 0; head_idx < head_size; head_idx++)
+                    InFile.read((char*)(&(feature->kp[head_idx])), sizeof(*(feature->kp)));
 
-                read_bin.features.push_back(feature);
+                read_bin->features.push_back(feature);
             }
 
             // Keep bow
@@ -394,7 +382,15 @@ void bow::reset_bow()
         for (size_t bow_idx = 0; bow_idx < multi_bow.size(); bow_idx++)
         {
             for (size_t bin_idx = 0; bin_idx < multi_bow[bow_idx].size(); bin_idx++)
-                multi_bow[bow_idx][bin_idx].features.clear();
+            {
+                for (size_t feature_idx = 0; feature_idx < multi_bow[bow_idx][bin_idx]->features.size(); feature_idx++)
+                {
+                    delete[] multi_bow[bow_idx][bin_idx]->features[feature_idx]->kp;    // delete float* kp[]         // <---- External memory, but delete here, outside do not delete
+                    delete multi_bow[bow_idx][bin_idx]->features[feature_idx];          // delete feature_object*
+                }
+                multi_bow[bow_idx][bin_idx]->features.clear();
+                delete multi_bow[bow_idx][bin_idx];                                     // delete bow_bin_object*
+            }
             multi_bow[bow_idx].clear();
         }
         multi_bow.clear();
@@ -405,7 +401,7 @@ void bow::reset_bow()
 void bow::build_pool()
 {
     // Create empty bow_pool_sig
-    vector<bow_bin_object> bow_pool_sig;
+    vector<bow_bin_object*> bow_pool_sig;
 
     // Pooling
     pooling(bow_pool_sig);
@@ -414,14 +410,15 @@ void bow::build_pool()
     multi_bow_pool.push_back(bow_pool_sig);
 }
 
-void bow::pooling(vector<bow_bin_object>& bow_sig)
+void bow::pooling(vector<bow_bin_object*>& bow_sig)
 {
     // Create sparse bow space
     bool* non_zero_bin = new bool[run_param.CLUSTER_SIZE];
     for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
         non_zero_bin[cluster_id] = false;
 
-    unordered_map<size_t, bow_bin_object> curr_sparse_bow;
+    vector<bow_bin_object*> curr_compact_bow;
+    unordered_map<size_t, bow_bin_object*> curr_sparse_bow;
 
     if (run_param.pooling_mode == POOL_SUM)
     {
@@ -448,7 +445,7 @@ void bow::pooling(vector<bow_bin_object>& bow_sig)
             curr_bow.cluster_id = it->index();
             curr_bow.weight = it->get();
             //curr_bow.features = it->....
-            bow_sig.push_back(curr_bow);
+            curr_compact_bow.push_back(curr_bow);
         }*/
     }
     else if (run_param.pooling_mode == POOL_AVG)
@@ -461,35 +458,41 @@ void bow::pooling(vector<bow_bin_object>& bow_sig)
             //cout << "multi_bow[" << bow_idx << "].size(): " << multi_bow[bow_idx].size() << endl;
             for (size_t bin_idx = 0; bin_idx < multi_bow[bow_idx].size(); bin_idx++)
             {
-                size_t cluster_id = multi_bow[bow_idx][bin_idx].cluster_id;
+                size_t cluster_id = multi_bow[bow_idx][bin_idx]->cluster_id;
 
                 // Initial curr_sparse_bow
                 if (!non_zero_bin[cluster_id])
                 {
-                    curr_sparse_bow[cluster_id].cluster_id = cluster_id;
-                    curr_sparse_bow[cluster_id].weight = 0;
+                    // Create new bin
+                    bow_bin_object* new_bin = new bow_bin_object();
+                    new_bin->cluster_id = cluster_id;
+                    new_bin->weight = 0;
+                    // Keep in curr_sparse_bow
+                    curr_sparse_bow[cluster_id] = new_bin;
                     non_zero_bin[cluster_id] = true;
                 }
 
                 // Update curr_sparse_bow
-                curr_sparse_bow[cluster_id].weight += multi_bow[bow_idx][bin_idx].weight;
-                curr_sparse_bow[cluster_id].features.insert(curr_sparse_bow[cluster_id].features.end(), multi_bow[bow_idx][bin_idx].features.begin(), multi_bow[bow_idx][bin_idx].features.end());
+                curr_sparse_bow[cluster_id]->weight += multi_bow[bow_idx][bin_idx]->weight;
+                curr_sparse_bow[cluster_id]->features.insert(curr_sparse_bow[cluster_id]->features.end(), multi_bow[bow_idx][bin_idx]->features.begin(), multi_bow[bow_idx][bin_idx]->features.end());
             }
         }
         /// Building compact bow
-        for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
+        unordered_map<size_t, bow_bin_object*>::iterator spare_bow_it;
+        for (spare_bow_it = curr_sparse_bow.begin(); spare_bow_it != curr_sparse_bow.end(); spare_bow_it++)
         {
             // Looking for non-zero bin of cluster,
             // then put that bin together in curr_compact_bow by specified cluster_id
-            if (non_zero_bin[cluster_id])
-            {
-                // Averaging
-                curr_sparse_bow[cluster_id].weight /= curr_multi_bow_size;
 
-                // Keep it back to bow_sig
-                bow_sig.push_back(curr_sparse_bow[cluster_id]);
-            }
+            // Averaging
+            spare_bow_it->second->weight /= curr_multi_bow_size;
+
+            // Keep it back to curr_compact_bow
+            curr_compact_bow.push_back(spare_bow_it->second);
         }
+
+        // Swap to return
+        bow_sig.swap(curr_compact_bow);
     }
     else if (run_param.pooling_mode == POOL_MAX)
     {
@@ -558,41 +561,30 @@ void bow::flush_bow_pool(bool append)
             for (size_t bin_id = 0; bin_id < bin_count; bin_id++)
             {
                 // Cluster ID
-                size_t cluster_id = multi_bow_pool[bow_pool_idx][bin_id].cluster_id;
+                size_t cluster_id = multi_bow_pool[bow_pool_idx][bin_id]->cluster_id;
                 OutFile.write(reinterpret_cast<char*>(&cluster_id), sizeof(cluster_id));
                 curr_bow_pool_offset += sizeof(cluster_id);
 
                 // Weight
-                float weight = multi_bow_pool[bow_pool_idx][bin_id].weight;
+                float weight = multi_bow_pool[bow_pool_idx][bin_id]->weight;
                 OutFile.write(reinterpret_cast<char*>(&weight), sizeof(weight));
                 curr_bow_pool_offset += sizeof(weight);
 
                 // Feature Count
-                size_t feature_count = multi_bow_pool[bow_pool_idx][bin_id].features.size();
+                size_t feature_count = multi_bow_pool[bow_pool_idx][bin_id]->features.size();
                 OutFile.write(reinterpret_cast<char*>(&feature_count), sizeof(feature_count));
                 curr_bow_pool_offset += sizeof(feature_count);
                 for (size_t bow_pool_feature_id = 0; bow_pool_feature_id < feature_count; bow_pool_feature_id++)
                 {
                     // Write all features from bin
-                    feature_object feature = multi_bow_pool[bow_pool_idx][bin_id].features[bow_pool_feature_id];
+                    feature_object* feature = multi_bow_pool[bow_pool_idx][bin_id]->features[bow_pool_feature_id];
                     // Feature ID
-                    OutFile.write(reinterpret_cast<char*>(&(feature.feature_id)), sizeof(feature.feature_id));
-                    curr_bow_pool_offset += sizeof(feature.feature_id);
+                    OutFile.write(reinterpret_cast<char*>(&(feature->feature_id)), sizeof(feature->feature_id));
+                    curr_bow_pool_offset += sizeof(feature->feature_id);
                     // x
-                    OutFile.write(reinterpret_cast<char*>(&(feature.x)), sizeof(feature.x));
-                    curr_bow_pool_offset += sizeof(feature.x);
-                    // y
-                    OutFile.write(reinterpret_cast<char*>(&(feature.y)), sizeof(feature.y));
-                    curr_bow_pool_offset += sizeof(feature.y);
-                    // a
-                    OutFile.write(reinterpret_cast<char*>(&(feature.a)), sizeof(feature.a));
-                    curr_bow_pool_offset += sizeof(feature.a);
-                    // b
-                    OutFile.write(reinterpret_cast<char*>(&(feature.b)), sizeof(feature.b));
-                    curr_bow_pool_offset += sizeof(feature.b);
-                    // c
-                    OutFile.write(reinterpret_cast<char*>(&(feature.c)), sizeof(feature.c));
-                    curr_bow_pool_offset += sizeof(feature.c);
+                    int head_size = SIFThesaff::GetSIFTHeadSize();
+                    OutFile.write(reinterpret_cast<char*>(feature->kp), head_size * sizeof(*(feature->kp)));
+                    curr_bow_pool_offset += head_size * sizeof(*(feature->kp));
                 }
             }
         }
@@ -618,7 +610,7 @@ void bow::load_bow_pool_offset()
     bow_pool_offset_ready = true;
 }
 
-bool bow::load_specific_bow_pool(size_t pool_id, vector<bow_bin_object>& bow_sig)
+bool bow::load_specific_bow_pool(size_t pool_id, vector<bow_bin_object*>& bow_sig)  // <---- This will create new memory, please delete[] kp, delete feature_object, and delete bow_bin_object
 {
     if (!bow_pool_offset_ready)
         load_bow_pool_offset();
@@ -636,7 +628,7 @@ bool bow::load_specific_bow_pool(size_t pool_id, vector<bow_bin_object>& bow_sig
         InFile.read((char*)(&dataset_id_read), sizeof(dataset_id_read));
 
         // Dataset bow
-        vector<bow_bin_object> read_bow_pool;
+        vector<bow_bin_object*> read_bow_pool;
 
         // Non-zero count
         size_t bin_count;
@@ -645,35 +637,30 @@ bool bow::load_specific_bow_pool(size_t pool_id, vector<bow_bin_object>& bow_sig
         // ClusterID and FeatureIDs
         for (size_t bin_idx = 0; bin_idx < bin_count; bin_idx++)
         {
-            bow_bin_object read_bin;
+            bow_bin_object* read_bin = new bow_bin_object();
 
             // Cluster ID
-            InFile.read((char*)(&(read_bin.cluster_id)), sizeof(read_bin.cluster_id));
+            InFile.read((char*)(&(read_bin->cluster_id)), sizeof(read_bin->cluster_id));
 
             // Weight
-            InFile.read((char*)(&(read_bin.weight)), sizeof(read_bin.weight));
+            InFile.read((char*)(&(read_bin->weight)), sizeof(read_bin->weight));
 
             // Feature count
             size_t feature_count;
             InFile.read((char*)(&feature_count), sizeof(feature_count));
             for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
             {
-                feature_object feature;
+                feature_object* feature = new feature_object();
 
                 // Feature ID
-                InFile.read((char*)(&(feature.feature_id)), sizeof(feature.feature_id));
-                // x
-                InFile.read((char*)(&(feature.x)), sizeof(feature.x));
-                // y
-                InFile.read((char*)(&(feature.y)), sizeof(feature.y));
-                // a
-                InFile.read((char*)(&(feature.a)), sizeof(feature.a));
-                // b
-                InFile.read((char*)(&(feature.b)), sizeof(feature.b));
-                // c
-                InFile.read((char*)(&(feature.c)), sizeof(feature.c));
+                InFile.read((char*)(&(feature->feature_id)), sizeof(feature->feature_id));
+                // x y a b c
+                int head_size = SIFThesaff::GetSIFTHeadSize();
+                feature->kp = new float[head_size];
+                for (int head_idx = 0; head_idx < head_size; head_idx++)
+                    InFile.read((char*)(&(feature->kp[head_idx])), sizeof(*(feature->kp)));
 
-                read_bin.features.push_back(feature);
+                read_bin->features.push_back(feature);
             }
 
             // Keep bow
@@ -707,7 +694,15 @@ void bow::reset_bow_pool()
         for (size_t bow_pool_idx = 0; bow_pool_idx < multi_bow_pool.size(); bow_pool_idx++)
         {
             for (size_t bin_idx = 0; bin_idx < multi_bow_pool[bow_pool_idx].size(); bin_idx++)
-                multi_bow_pool[bow_pool_idx][bin_idx].features.clear();
+            {
+                /*for (size_t feature_idx = 0; feature_idx < multi_bow_pool[bow_pool_idx][bin_idx]->features.size(); feature_idx++)
+                {
+                    //delete[] multi_bow_pool[bow_pool_idx][bin_idx]->features[feature_idx]->kp;  // delete float* kp[]     <---- deleted by reset_bow()
+                    //delete multi_bow_pool[bow_pool_idx][bin_idx]->features[feature_idx];        // delete feature_object* <---- deleted by reset_bow()
+                }*/
+                multi_bow_pool[bow_pool_idx][bin_idx]->features.clear();
+                delete multi_bow_pool[bow_pool_idx][bin_idx];                                   // delete bow_bin_object*
+            }
             multi_bow_pool[bow_pool_idx].clear();
         }
         multi_bow_pool.clear();
@@ -715,3 +710,4 @@ void bow::reset_bow_pool()
 }
 
 }
+//;)

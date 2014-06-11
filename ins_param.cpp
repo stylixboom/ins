@@ -301,7 +301,10 @@ void ins_param::set_presetparam(const string& params_prefix)
     inv_path                = offline_working_path + "/invdata_" + dataset_header + "_" + pooling_string;
     invdef_path             = inv_path + "/invertedhist.def";
     online_working_path     = query_root_dir + "/" + dataset_prefix;
-    histrequest_path        = online_working_path + "/hist_request.txt";
+    querylist_filename      = "query_list.txt";
+    hist_filename           = "bow_hist.txt";
+    histrequest_filename    = "hist_request.txt";
+    histrequest_path        = online_working_path + "/" + histrequest_filename;
 }
 
 void ins_param::LoadPreset()

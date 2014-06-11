@@ -75,6 +75,9 @@ namespace ins
 	const static int POOL_MAX = 1;
 	const static int POOL_AVG = 2;
 
+	// Signal
+	const static string SIGQUIT = "SIGQUIT";
+
 class ins_param
 {
     typedef struct _dataset_preset_object{ string path_from_dataset_root; int group_at_pool_level; string database_params_prefix; } dataset_preset_object;
@@ -105,6 +108,9 @@ public:
     string inv_path;
     string invdef_path;
     string online_working_path;
+    string hist_filename;
+    string querylist_filename;
+    string histrequest_filename;
     string histrequest_path;
 
     // Directory param

@@ -33,7 +33,7 @@ gvp_space::~gvp_space(void)
     space_freq.clear();
 }
 
-void gvp_space::init_space(int space_mode, int space_size, int gvp_length)
+void gvp_space::init_space(const int space_mode, const int space_size, const int gvp_length)
 {
     // Initial parameters
     // GVP parameters
@@ -60,7 +60,7 @@ void gvp_space::init_space(int space_mode, int space_size, int gvp_length)
         total_space = _space_size * _space_size;          // Orientation is wider than distance
 }
 
-void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, float dataset_x, float dataset_y, float query_x, float query_y)
+void gvp_space::calc_motion(const size_t dataset_id, const float tfidf_in, const float idf_in, const float* dataset_kp, const float* query_kp)
 {
     // Initial space idf and score if no dataset before
     if (space_freq.find(dataset_id) == space_freq.end())
@@ -80,8 +80,8 @@ void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, flo
     if (_space_mode == OFFSET)
     {
         // Finding an offset from it's center
-        int quant_offset_x = ((int)(dataset_x * _space_size) - (int)(query_x * _space_size) + _space_size);
-        int quant_offset_y = ((int)(dataset_y * _space_size) - (int)(query_y * _space_size) + _space_size);
+        int quant_offset_x = ((int)(dataset_kp[0] * _space_size) - (int)(query_kp[0] * _space_size) + _space_size);
+        int quant_offset_y = ((int)(dataset_kp[1] * _space_size) - (int)(query_kp[1] * _space_size) + _space_size);
 
         /*
         cout << "Dataset point [" << dataset_id << "]" << endl << " ";
@@ -93,14 +93,14 @@ void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, flo
             cout << CharPadString(toString(row), ' ', (int)ceil(log10(_space_size)));
             for (int col = 0; col < _space_size; col++)
             {
-                if (row == (int)(dataset_x * _space_size) && col == (int)(dataset_y * _space_size))
+                if (row == (int)(dataset_kp[0] * _space_size) && col == (int)(dataset_kp[1] * _space_size))
                     cout << " " << CharPadString("x", ' ', (int)ceil(log10(_space_size)));
                 else
                     cout << " " << CharPadString("-", ' ', (int)ceil(log10(_space_size)));
             }
             cout << endl;
         }
-        cout << (int)(dataset_x * _space_size) << "," << (int)(dataset_y * _space_size) << endl;
+        cout << (int)(dataset_kp[0] * _space_size) << "," << (int)(dataset_kp[1] * _space_size) << endl;
 
         cout << "Query point" << endl << " ";
         for (int col = 0; col < _space_size; col++)
@@ -111,14 +111,14 @@ void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, flo
             cout << CharPadString(toString(row), ' ', (int)ceil(log10(_space_size)));
             for (int col = 0; col < _space_size; col++)
             {
-                if (row == (int)(query_x * _space_size) && col == (int)(query_y * _space_size))
+                if (row == (int)(query_kp[0] * _space_size) && col == (int)(query_kp[1] * _space_size))
                     cout << " " << CharPadString("x", ' ', (int)ceil(log10(_space_size)));
                 else
                     cout << " " << CharPadString("-", ' ', (int)ceil(log10(_space_size)));
             }
             cout << endl;
         }
-        cout << (int)(query_x * _space_size) << "," << (int)(query_y * _space_size) << endl;
+        cout << (int)(query_kp[0] * _space_size) << "," << (int)(query_kp[1] * _space_size) << endl;
 
         cout << "Offset point" << endl << "  ";
         for (int col = 0; col < _space_size * 2; col++)
@@ -136,7 +136,7 @@ void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, flo
             }
             cout << endl;
         }
-        cout << quant_offset_x << "," << quant_offset_y << " = " << (int)(dataset_x * _space_size) - (int)(query_x * _space_size) << "," << (int)(dataset_y * _space_size) - (int)(query_y * _space_size) << endl;
+        cout << quant_offset_x << "," << quant_offset_y << " = " << (int)(dataset_kp[0] * _space_size) - (int)(query_kp[0] * _space_size) << "," << (int)(dataset_kp[1] * _space_size) - (int)(query_kp[1] * _space_size) << endl;
 
         cout << "paused.." << endl;
         char tmp;
@@ -178,8 +178,8 @@ void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, flo
     }
     else // DEGREE mode
     {
-        float dx = dataset_x - query_x;
-        float dy = dataset_y - query_y;
+        float dx = dataset_kp[0] - query_kp[0];
+        float dy = dataset_kp[1] - query_kp[1];
         float raw_degree;
         float raw_distance;
         int quant_degree;
@@ -213,7 +213,7 @@ void gvp_space::calc_motion(size_t dataset_id, float tfidf_in, float idf_in, flo
     }
 }
 
-void gvp_space::get_score(float dataset_score[])
+void gvp_space::get_score(float* &dataset_score)
 {
     // For each dataset
     for (space_freq_iter space_freq_it = space_freq.begin(); space_freq_it != space_freq.end(); space_freq_it++)

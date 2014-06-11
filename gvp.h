@@ -67,10 +67,10 @@ class gvp_space
 public:
     gvp_space(void);
     ~gvp_space(void);
-    void init_space(int space_mode = DEGREE, int space_size = 10, int gvp_length = 2);
-    void add_dataset_feature(size_t dataset_id);
-    void calc_motion(size_t dataset_id, float tfidf_in, float idf_in, float dataset_x, float dataset_y, float query_x, float query_y);
-    void get_score(float dataset_score[]);
+    void init_space(const int space_mode = DEGREE, const int space_size = 10, const int gvp_length = 2);
+    void add_dataset_feature(const size_t dataset_id);
+    void calc_motion(const size_t dataset_id, const float tfidf_in, const float idf_in, const float* dataset_kp, const float* query_kp);
+    void get_score(float* &dataset_score);
 
 };
 
