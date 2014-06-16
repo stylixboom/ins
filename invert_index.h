@@ -45,14 +45,17 @@ class invert_index
     // Run param
     ins_param run_param;
 
-    static const size_t STATIC_CLUSTER_SIZE = 1000000;   // set to highest as possible, for bitset<STATIC_CLUSTER_SIZE>
-    static const size_t MAX_DATASET_SIZE = 300000;
+    bool mem_free;
+    bool cache_free;
+
+    size_t cluster_size;
 	static const size_t DB_MAX_PARTITION = 100;
 	string inv_file_path;
 	size_t dataset_size;
+	size_t cluster_lower_bound;
+	size_t cluster_upper_bound;
 	// Inverted Index Data
-	size_t* actual_cluster_amount; // df
-	float* idf;
+	size_t total_df;
 	vector<dataset_object*>* inv_idx_data;
 	/// inv_data[
 	///     cluster_id 0: deque[
