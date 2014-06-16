@@ -75,10 +75,14 @@ class invert_index
 	/// ]
 	///
 	// Stop word
-	bitset<STATIC_CLUSTER_SIZE> stop_list;
+	bool* stopword_list;
+	// df
+	size_t* actual_cluster_amount;
+	float* idf;
+	bool* written_word;
 	// Hybrid Memory Management
 	int top_cache;
-	bitset<STATIC_CLUSTER_SIZE> inv_cache_hit;
+	bool* inv_cache_hit;
 	vector< pair<size_t, size_t> > cluster_amount_sorted;
 	unordered_map<size_t, size_t> mfu_cache_freq; // Most frequently mapped
 
@@ -91,30 +95,44 @@ class invert_index
     string _matching_path;
 
     // Partitioning
+    bool partition_ready;
     size_t partition_size;
 	int partition_digit_length;
 	int file_digit_length;
 public:
 	invert_index(void);
 	~invert_index(void);
-	void init(const ins_param& run_param);
-	void add(size_t dataset_id, const vector<bow_bin_object*>& bow_sig);
+	// Inverted index construction
+	void init(const ins_param& run_param, bool resume = false);
+	bool build_header_from_bow_file();
+	void add(const size_t dataset_id, const vector<bow_bin_object*>& bow_sig);
+	// Inverted index IO
+	void flush();
+	void save_header();
+	void save();
+	void load_header();
+	void load(int top);
+	void cache_at(size_t index);
+	void partition_init();
+	// Inverted index meta-data
+	void sort_cluster_df();
+	void recalculate_idf();
+	float get_idf_at(size_t cluster_id);
+	float* get_idf();
+	int set_stopword_list(int percent_top_stop_doc, int percent_bottom_stop_doc);
+	// Memory management
+	void update_cache_status(size_t index);
+	// Retrieval
 	size_t search(const vector<bow_bin_object*>& bow_sig, vector< pair<size_t, float> >& ret_ranklist, int sim_mode = SIM_L1, int* sim_param = NULL);
-	void similarity_l1(const vector<bow_bin_object*>& bow_sig, bitset<MAX_DATASET_SIZE>& dataset_hit, float* dataset_score);
-	void similarity_gvp(const vector<bow_bin_object*>& bow_sig, bitset<MAX_DATASET_SIZE>& dataset_hit, float* dataset_score, int* sim_param);
+	void similarity_l1(const vector<bow_bin_object*>& bow_sig, bool* dataset_hit, float* dataset_score);
+	void similarity_gvp(const vector<bow_bin_object*>& bow_sig, bool* dataset_hit, float* dataset_score, int* sim_param);
+	// Tools
 	void start_matching_dump(const string& dataset_root_dir, const vector<string>& ImgParentPaths, const vector<size_t>& ImgParentsIdx, const vector<string>& ImgLists, const vector<size_t>& dump_list, const string& query_path);
 	void feature_matching_dump(const size_t dataset_id, const size_t cluster_id, const float weight, const float* dataset_kp, const float* query_kp);
 	void stop_matching_dump();
-	void update_idf();
-	float get_idf_at(size_t cluster_id);
-	float* get_idf();
-	void flush_invfile();
-	void save_invfile();
-	void update_invfile();
-	void load_invfile(int top);
-	void cache_at(size_t index);
-	void update_cache_status(size_t index);
-	void release_memory(void);
+	// Release memory
+	void release_cache(void);
+	void release_mem(void);
 };
 
 };

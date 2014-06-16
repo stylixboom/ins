@@ -21,6 +21,7 @@ ins_param::ins_param(void)
     database_root_dir = home_path + "/webstylix/code/database/ins_offline";
     dataset_root_dir = home_path + "/webstylix/code/dataset";
     query_root_dir = home_path + "/webstylix/code/ins_online/query";
+    shm_root_dir = "/dev/shm";
     dataset_preset_index = 0;
 
     // Get total CPUs, then keep it to MAXCPU
@@ -54,7 +55,7 @@ ins_param::ins_param(void)
     query_scale_enable = false;
 
     // Pooling
-    pooling_enable = true;
+    pooling_enable = false;
     pooling_mode = POOL_AVG;
 }
 
@@ -294,11 +295,15 @@ void ins_param::set_presetparam(const string& params_prefix)
     quantized_path          = offline_working_path + "/quantized";
     quantized_offset_path   = offline_working_path + "/quantized_offset";
     searchindex_path        = offline_working_path + "/searchindex";
-    bow_offset_path         = offline_working_path + "/bow_offset";
-    bow_pool_offset_path    = offline_working_path + "/bow_" + pooling_string + "_offset";
     bow_path                = offline_working_path + "/bow";
-    bow_pool_path           = offline_working_path + "/bow_" + pooling_string;
-    inv_path                = offline_working_path + "/invdata_" + dataset_header + "_" + pooling_string;
+    bow_offset_path         = offline_working_path + "/bow_offset";
+    inv_path                = offline_working_path + "/invdata_" + dataset_header;
+    if (pooling_enable)
+    {
+        bow_pool_path           = offline_working_path + "/bow_" + pooling_string;
+        bow_pool_offset_path    = offline_working_path + "/bow_" + pooling_string + "_offset";
+        inv_path                = inv_path + "_" + pooling_string;
+    }
     invdef_path             = inv_path + "/invertedhist.def";
     online_working_path     = query_root_dir + "/" + dataset_prefix;
     querylist_filename      = "query_list.txt";

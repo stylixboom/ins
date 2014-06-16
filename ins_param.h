@@ -119,6 +119,7 @@ public:
     string database_root_dir;
     string dataset_root_dir;
     string query_root_dir;
+    string shm_root_dir;
 
     string path_from_dataset;
     int group_level;
