@@ -16,17 +16,27 @@ using namespace ins;
 namespace ins
 {
 
-bow::bow(ins_param param)
+bow::bow(void)
 {
-    run_param = param;
-    bow_offset_ready = false;
-    bow_pool_offset_ready = false;
+
 }
 
 bow::~bow(void)
 {
+    delete[] cluster_id_mask;
     reset_bow();
     reset_bow_pool();
+}
+
+void bow::init(ins_param param)
+{
+    run_param = param;
+    bow_offset_ready = false;
+    bow_pool_offset_ready = false;
+
+    cluster_id_mask = new bool[run_param.CLUSTER_SIZE];
+    for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
+        cluster_id_mask[cluster_id] = false;
 }
 
 // Tools
@@ -119,6 +129,17 @@ void bow::logtf_idf_unitnormalize(vector<bow_bin_object*>& bow_sig, const float*
     // Normalizing
     for (size_t bin_idx = 0; bin_idx < bow_sig_size; bin_idx++)
         bow_sig[bin_idx]->weight = bow_sig[bin_idx]->weight / unit_length;
+}
+
+void bow::set_load_filter(const size_t min_word, const size_t max_word)
+{
+    // Reset
+    for (size_t cluster_id = 0; cluster_id < run_param.CLUSTER_SIZE; cluster_id++)
+        cluster_id_mask[cluster_id] = false;
+
+    // Set
+    for (size_t cluster_id = min_word; cluster_id < max_word; cluster_id++)
+        cluster_id_mask[cluster_id] = true;
 }
 
 // BoW (build per image)
@@ -306,60 +327,98 @@ bool bow::load_specific_bow(size_t image_id, vector<bow_bin_object*>& bow_sig)
     ifstream InFile (run_param.bow_path.c_str(), ios::binary);
     if (InFile)
     {
-        /// Skip to bow of specific image_id
+        /// Prepare bow buffer
         size_t curr_offset = bow_offset[image_id];
-        InFile.seekg(curr_offset, InFile.beg);
-
-        /// Bow hist
-        // Dataset ID (read, but not use)
-        size_t dataset_id_read;
-        InFile.read((char*)(&dataset_id_read), sizeof(dataset_id_read));
-
-        // Dataset bow
-        vector<bow_bin_object*> read_bow;
-
-        // Non-zero count
-        size_t bin_count;
-        InFile.read((char*)(&bin_count), sizeof(bin_count));
-
-        // ClusterID and FeatureIDs
-        for (size_t bin_idx = 0; bin_idx < bin_count; bin_idx++)
+        size_t buffer_size = 0;
+        if (image_id < bow_offset.size() - 1)
+            buffer_size = bow_offset[image_id + 1] - curr_offset;
+        else
         {
-            bow_bin_object* read_bin = new bow_bin_object();
-
-            // Cluster ID
-            InFile.read((char*)(&(read_bin->cluster_id)), sizeof(read_bin->cluster_id));
-
-            // Weight
-            InFile.read((char*)(&(read_bin->weight)), sizeof(read_bin->weight));
-
-            // Feature count
-            size_t feature_count;
-            InFile.read((char*)(&feature_count), sizeof(feature_count));
-            for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
-            {
-                feature_object* feature = new feature_object();
-
-                // Feature ID
-                InFile.read((char*)(&(feature->feature_id)), sizeof(feature->feature_id));
-                // x y a b c
-                int head_size = SIFThesaff::GetSIFTHeadSize();
-                feature->kp = new float[head_size];
-                for (int head_idx = 0; head_idx < head_size; head_idx++)
-                    InFile.read((char*)(&(feature->kp[head_idx])), sizeof(*(feature->kp)));
-
-                read_bin->features.push_back(feature);
-            }
-
-            // Keep bow
-            read_bow.push_back(read_bin);
+            InFile.seekg(0, InFile.end);
+            buffer_size = InFile.tellg();
+            buffer_size -= curr_offset;
         }
-
-        // Keep hist
-        bow_sig.swap(read_bow);
+        char* bow_buffer = new char[buffer_size];
+        char* bow_buffer_ptr = bow_buffer;
+        InFile.seekg(curr_offset, InFile.beg);
+        InFile.read(bow_buffer, buffer_size);
 
         // Close file
         InFile.close();
+
+        /// Bow hist
+        // Dataset ID (read, but not use)
+        size_t dataset_id_read = *((size_t*)bow_buffer_ptr);
+        bow_buffer_ptr += sizeof(dataset_id_read);
+
+        // Non-zero count
+        size_t bin_count = *((size_t*)bow_buffer_ptr);
+        bow_buffer_ptr += sizeof(bin_count);
+
+        // ClusterID and FeatureIDs
+        int head_size = SIFThesaff::GetSIFTHeadSize();
+        size_t feature_offset_size = sizeof(size_t) + head_size * sizeof(float);
+                                     // feature_id + (x + y + a + b + c)
+        for (size_t bin_idx = 0; bin_idx < bin_count; bin_idx++)
+        {
+            // Cluster ID
+            size_t cluster_id = *((size_t*)bow_buffer_ptr);
+            bow_buffer_ptr += sizeof(cluster_id);
+            // Check if this cluster_id fall off the range
+            if (!cluster_id_mask[cluster_id])
+            {   // Skipping
+                // Weight
+                bow_buffer_ptr += sizeof(float);
+
+                // Feature count
+                size_t feature_count = *((size_t*)bow_buffer_ptr);
+                bow_buffer_ptr += sizeof(feature_count);
+
+                // Skipping features
+                bow_buffer_ptr += (feature_count * feature_offset_size);
+            }
+            else
+            {   // Normal load
+
+                // Create bin_obj
+                bow_bin_object* read_bin = new bow_bin_object();
+
+                // Set cluster_id
+                read_bin->cluster_id = cluster_id;
+
+                // Weight
+                read_bin->weight = *((float*)bow_buffer_ptr);
+                bow_buffer_ptr += sizeof(read_bin->weight);
+
+                // Feature count
+                size_t feature_count;
+                feature_count = *((size_t*)bow_buffer_ptr);
+                bow_buffer_ptr += sizeof(feature_count);
+                for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
+                {
+                    feature_object* feature = new feature_object();
+
+                    // Feature ID
+                    feature->feature_id = *((size_t*)bow_buffer_ptr);
+                    bow_buffer_ptr += sizeof(feature->feature_id);
+                    // x y a b c
+                    feature->kp = new float[head_size];
+                    for (int head_idx = 0; head_idx < head_size; head_idx++)
+                    {
+                        feature->kp[head_idx] = *((float*)bow_buffer_ptr);
+                        bow_buffer_ptr += sizeof(feature->kp[head_idx]);
+                    }
+
+                    read_bin->features.push_back(feature);
+                }
+
+                // Keep bow
+                bow_sig.push_back(read_bin);
+            }
+        }
+
+        // Release bow_buffer
+        delete[] bow_buffer;
 
         return true;
     }
@@ -618,60 +677,98 @@ bool bow::load_specific_bow_pool(size_t pool_id, vector<bow_bin_object*>& bow_si
     ifstream InFile (run_param.bow_pool_path.c_str(), ios::binary);
     if (InFile)
     {
-        /// Skip to bow of specific pool_id
+        /// Prepare buffer
         size_t curr_offset = bow_pool_offset[pool_id];
-        InFile.seekg(curr_offset, InFile.beg);
-
-        /// Bow hist
-        // Dataset ID (read, but not use)
-        size_t dataset_id_read;
-        InFile.read((char*)(&dataset_id_read), sizeof(dataset_id_read));
-
-        // Dataset bow
-        vector<bow_bin_object*> read_bow_pool;
-
-        // Non-zero count
-        size_t bin_count;
-        InFile.read((char*)(&bin_count), sizeof(bin_count));
-
-        // ClusterID and FeatureIDs
-        for (size_t bin_idx = 0; bin_idx < bin_count; bin_idx++)
+        size_t buffer_size = 0;
+        if (pool_id < bow_pool_offset.size() - 1)
+            buffer_size = bow_pool_offset[pool_id + 1] - curr_offset;
+        else
         {
-            bow_bin_object* read_bin = new bow_bin_object();
-
-            // Cluster ID
-            InFile.read((char*)(&(read_bin->cluster_id)), sizeof(read_bin->cluster_id));
-
-            // Weight
-            InFile.read((char*)(&(read_bin->weight)), sizeof(read_bin->weight));
-
-            // Feature count
-            size_t feature_count;
-            InFile.read((char*)(&feature_count), sizeof(feature_count));
-            for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
-            {
-                feature_object* feature = new feature_object();
-
-                // Feature ID
-                InFile.read((char*)(&(feature->feature_id)), sizeof(feature->feature_id));
-                // x y a b c
-                int head_size = SIFThesaff::GetSIFTHeadSize();
-                feature->kp = new float[head_size];
-                for (int head_idx = 0; head_idx < head_size; head_idx++)
-                    InFile.read((char*)(&(feature->kp[head_idx])), sizeof(*(feature->kp)));
-
-                read_bin->features.push_back(feature);
-            }
-
-            // Keep bow
-            read_bow_pool.push_back(read_bin);
+            InFile.seekg(0, InFile.end);
+            buffer_size = InFile.tellg();
+            buffer_size -= curr_offset;
         }
-
-        // Keep hist
-        bow_sig.swap(read_bow_pool);
+        char* bow_buffer = new char[buffer_size];
+        char* bow_buffer_ptr = bow_buffer;
+        InFile.seekg(curr_offset, InFile.beg);
+        InFile.read(bow_buffer, buffer_size);
 
         // Close file
         InFile.close();
+
+        /// Bow hist
+        // Dataset ID (read, but not use)
+        size_t dataset_id_read = *((size_t*)bow_buffer_ptr);
+        bow_buffer_ptr += sizeof(dataset_id_read);
+
+        // Non-zero count
+        size_t bin_count = *((size_t*)bow_buffer_ptr);
+        bow_buffer_ptr += sizeof(bin_count);
+
+        // ClusterID and FeatureIDs
+        int head_size = SIFThesaff::GetSIFTHeadSize();
+        size_t feature_offset_size = sizeof(size_t) + head_size * sizeof(float);
+                                     // feature_id + (x + y + a + b + c)
+        for (size_t bin_idx = 0; bin_idx < bin_count; bin_idx++)
+        {
+            // Cluster ID
+            size_t cluster_id = *((size_t*)bow_buffer_ptr);
+            bow_buffer_ptr += sizeof(cluster_id);
+            // Check if this cluster_id fall off the range
+            if (!cluster_id_mask[cluster_id])
+            {   // Skipping
+                // Weight
+                bow_buffer_ptr += sizeof(float);
+
+                // Feature count
+                size_t feature_count = *((size_t*)bow_buffer_ptr);
+                bow_buffer_ptr += sizeof(feature_count);
+
+                // Skipping features
+                bow_buffer_ptr += (feature_count * feature_offset_size);
+            }
+            else
+            {   // Normal load
+
+                // Create bin_obj
+                bow_bin_object* read_bin = new bow_bin_object();
+
+                // Set cluster_id
+                read_bin->cluster_id = cluster_id;
+
+                // Weight
+                read_bin->weight = *((float*)bow_buffer_ptr);
+                bow_buffer_ptr += sizeof(read_bin->weight);
+
+                // Feature count
+                size_t feature_count;
+                feature_count = *((size_t*)bow_buffer_ptr);
+                bow_buffer_ptr += sizeof(feature_count);
+                for (size_t bow_feature_id = 0; bow_feature_id < feature_count; bow_feature_id++)
+                {
+                    feature_object* feature = new feature_object();
+
+                    // Feature ID
+                    feature->feature_id = *((size_t*)bow_buffer_ptr);
+                    bow_buffer_ptr += sizeof(feature->feature_id);
+                    // x y a b c
+                    feature->kp = new float[head_size];
+                    for (int head_idx = 0; head_idx < head_size; head_idx++)
+                    {
+                        feature->kp[head_idx] = *((float*)bow_buffer_ptr);
+                        bow_buffer_ptr += sizeof(feature->kp[head_idx]);
+                    }
+
+                    read_bin->features.push_back(feature);
+                }
+
+                // Keep bow
+                bow_sig.push_back(read_bin);
+            }
+        }
+
+        // Release bow_buffer
+        delete[] bow_buffer;
 
         return true;
     }
