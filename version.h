@@ -4,10 +4,10 @@
 namespace ins_AutoVersion{
 	
 	//Date Version Types
-	static const char ins_DATE[] = "13";
-	static const char ins_MONTH[] = "06";
-	static const char ins_YEAR[] = "2014";
-	static const char ins_UBUNTU_VERSION_STYLE[] =  "14.06";
+	static const char ins_DATE[] = "09";
+	static const char ins_MONTH[] = "03";
+	static const char ins_YEAR[] = "2015";
+	static const char ins_UBUNTU_VERSION_STYLE[] =  "15.03";
 	
 	//Software Status
 	static const char ins_STATUS[] =  "Alpha";
@@ -15,18 +15,18 @@ namespace ins_AutoVersion{
 	
 	//Standard Version Type
 	static const long ins_MAJOR  = 1;
-	static const long ins_MINOR  = 6;
-	static const long ins_BUILD  = 179;
-	static const long ins_REVISION  = 719;
+	static const long ins_MINOR  = 7;
+	static const long ins_BUILD  = 335;
+	static const long ins_REVISION  = 1576;
 	
 	//Miscellaneous Version Types
-	static const long ins_BUILDS_COUNT  = 252;
-	#define ins_RC_FILEVERSION 1,6,179,719
-	#define ins_RC_FILEVERSION_STRING "1, 6, 179, 719\0"
-	static const char ins_FULLVERSION_STRING [] = "1.6.179.719";
+	static const long ins_BUILDS_COUNT  = 427;
+	#define ins_RC_FILEVERSION 1,7,335,1576
+	#define ins_RC_FILEVERSION_STRING "1, 7, 335, 1576\0"
+	static const char ins_FULLVERSION_STRING [] = "1.7.335.1576";
 	
 	//These values are to keep track of your versioning state, don't modify them.
-	static const long ins_BUILD_HISTORY  = 31;
+	static const long ins_BUILD_HISTORY  = 87;
 	
 
 }
