@@ -1,52 +1,69 @@
 /*
  * homography.h
  *
- *  Created on: January 14, 2013
+ *  Created on: November 27, 2014
  *      Author: Siriwat Kasamwattanarote
  */
-#pragma once
-#include <iostream>
-#include <vector>
-#include <sstream>
-#include <fstream>
-#include <sys/time.h>
-#include <sys/stat.h>
-#include <unistd.h> // usleep
-#include "opencv2/core/core.hpp"
-#include "opencv2/nonfree/features2d.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
 
-#include "../alphautils/alphautils.h"
+ /// RANSAC note ///
+ /*
+ This implementation is a RANSAC homography checker.
+ By input two sets of 2D point cloud,
+ then RANSAC will calculate its H matrix.
+ *** However, we are using BoW,
+ which may contains several points in one cluster
+ and it may lead to miss verification.
+ So, we will select only the first keypoint in each cluster,
+ and hope it will be a good representative for that class.
+
+ At least, it will reduce a burstiness problem, hopefully.
+ */
+#pragma once
+#include <bitset>
 
 using namespace std;
-using namespace cv;
-using namespace alphautils;
 
 namespace ins
 {
 
 class homography
 {
-	vector< pair <size_t, int> > lookupResult; // index, miss match
-	vector< vector < DMatch > > rawResult;
-	string TempDir;
-	string MatchImgDir;
+    // Private variables and functions here
+    ins_param run_param;
 
-    // Comparision
-    template<template <typename> class P = std::greater >
-    struct compare_pair_second {
-        template<class T1, class T2> bool operator()(const std::pair<T1, T2>& left, const std::pair<T1, T2>& right) {
-            return P<T2>()(left.second, right.second);
-        }
-    };
+    #define BIT1M bitset<1000000>
+
+    BIT1M src_mask;                                 // Mask of cluster_ids of query
+    unordered_map<size_t, Point2f> src_pts_map;     // Map cluster_id -> point
+
+    // RANSAC variables
+    vector<double*> u_pack;                         // vector[[x1, y1, z1, x2, y2, z2] * total_match]
+    vector< vector<size_t> > ref_cluster_ids_pack;  // vector[vector[cls1]]
+    vector<int> match_size_pack;
+    vector<int> inlier_count_pack;
+    vector<double> ransac_score_pack;
+    vector<BIT1M> inlier_bin_pack;
+
+    // RANSAC inlier
+    int inlier_thre;
 
 public:
-	homography(void);
+	homography(const ins_param& param);
 	~homography(void);
-	void Process(const string& queryfile, const string& frameroot, const vector<string>& framedir, const vector<string>& framename, const vector< pair<size_t, float> >& rank, const size_t maxLimit);
-	void GetReRanked(vector< pair <size_t, int> >& result);
-	void Reset(void);
+	// Functions
+	void set_src_2dpts(const vector<Point2f>& src_2dpts, const vector<size_t>& cluster_ids);
+	void add_ref_2dpts(const vector<Point2f>& ref_2dpts, const vector<size_t>& cluster_ids);
+	void calc_homo();
+	BIT1M& get_inliers_at(const size_t ref_idx);
+	void get_inliers_pack(vector<BIT1M>& inlier_pack);
+	void get_inlier_count_pack(vector<int>& inlier_count);
+	void get_ransac_score_pack(vector<double>& ransac_score);
+	int calc_adint();                                               /// Calculate Adaptive Inlier Threshold
+	void verify_topk(vector<bool>& topk_inlier, int inl_th = 5);    /// Verify topk, return is vector<bool> topk_inlier
+	// Tools
+	void normalise2dpts(vector<Point2f>& pts);
+	void reset(void);
 };
 
 };
+//;)
