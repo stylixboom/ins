@@ -5,27 +5,6 @@
  *      Author: Siriwat Kasamwattanarote
  */
 #pragma once
-#include <bitset>
-#include <vector>
-#include <deque>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <string>
-#include <sys/time.h>
-#include <sstream>
-#include <unordered_map>
-#include <cmath>
-#include <algorithm> // sort
-#include <cstdlib> // exit
-
-#include <sys/types.h> // for checking exist file and dir
-#include <sys/stat.h>
-
-#include "../alphautils/alphautils.h"
-
-using namespace std;
-using namespace alphautils;
 
 namespace ins
 {

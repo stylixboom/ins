@@ -1,9 +1,30 @@
+// *** ADDED BY HEADER FIXUP ***
+#include <ctime>
+// *** END ***
 /*
  * gvp.cpp
  *
  *  Created on: September 25, 2013
  *      Author: Siriwat Kasamwattanarote
  */
+#include <bitset>
+#include <vector>
+#include <deque>
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <string>
+#include <sys/time.h>
+#include <sstream>
+#include <unordered_map>
+#include <cmath>
+#include <algorithm> // sort
+#include <cstdlib> // exit
+#include <sys/types.h> // for checking exist file and dir
+#include <sys/stat.h>
+
+// Siriwat's header
+#include "../alphautils/alphautils.h"
 
 #include "gvp.h"
 

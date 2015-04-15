@@ -50,9 +50,7 @@ size_t dataset_info::dataset_lookup_table_init(const string& ins_root_path)
             {
                 vector<string> split_line;
                 // parent_id:parent_path
-                const char* delimsColon = ":";
-
-                string_splitter(read_line, delimsColon, split_line);
+                StringExplode(read_line, ":", split_line);
 
                 ImgParentPaths.push_back(split_line[1]);
             }
@@ -74,9 +72,7 @@ size_t dataset_info::dataset_lookup_table_init(const string& ins_root_path)
             {
                 vector<string> split_line;
                 // parent_id:image_name
-                const char* delimsColon = ":";
-
-                string_splitter(read_line, delimsColon, split_line);
+                StringExplode(read_line, ":", split_line);
 
                 ImgParentsIdx.push_back(atoi(split_line[0].c_str()));
                 ImgLists.push_back(split_line[1]);
@@ -211,16 +207,13 @@ void dataset_info::commercial_init()
 					// 2009_08_17_00_001633_0000tbs 33	2009_08_17_00_001633_0000tbs 2009_08_31_21_087347_0000tbs 2009_08_21_20_080757_0000net 2009_08_21_20_081206_0000net 450
 					// candidate freq	clip_start clip_end shot_start shot_end some_number
 
-					const char* delimsSpace = " ";// space
-					const char* delimsTab = "\t";// tab
-
 					vector<string> SpaceSubCfc;
 					vector<string> TabSubCfc;
 
-					string_splitter(lookupline, delimsSpace, SpaceSubCfc);
+					StringExplode(lookupline, " ", SpaceSubCfc);
 					CfClipName.push_back(SpaceSubCfc[0]);
 					CfShotName.push_back(SpaceSubCfc[3]);
-					string_splitter(SpaceSubCfc[1], delimsTab, TabSubCfc);
+					StringExplode(SpaceSubCfc[1], "\t", TabSubCfc);
 					CfFreq.push_back(atoi(TabSubCfc[0].c_str()));
 
 					SpaceSubCfc.clear();
@@ -244,11 +237,9 @@ void dataset_info::commercial_init()
 				{
 					// 2009_10_26_08_075512_0000tbs 1
 
-					const char* delimsSpace = " ";// space
-
 					vector<string> SpaceSubId;
 
-					string_splitter(lookupline, delimsSpace, SpaceSubId);
+					StringExplode(lookupline, " ", SpaceSubId);
 					CfIdName.push_back(SpaceSubId[0]);
 					CfId.push_back(atoi(SpaceSubId[1].c_str()));
 
@@ -272,11 +263,9 @@ void dataset_info::commercial_init()
 				{
 					// 2009_10_26_08_075512_0000tbs 1
 
-					const char* delimsSpace = " ";// space
-
 					vector<string> SpaceSubId;
 
-					string_splitter(lookupline, delimsSpace, SpaceSubId);
+					StringExplode(lookupline, " ", SpaceSubId);
 					CfIdName.push_back(SpaceSubId[0]);
 					CfId.push_back(atoi(SpaceSubId[1].c_str()));
 
@@ -381,10 +370,8 @@ void dataset_info::commercial_init()
 				getline(ComInfoFile, line);
 				if(line != "")
 				{
-					const char* delimsSpace = " ";// space
-
 					vector<string> SpaceSub;
-					string_splitter(line, delimsSpace, SpaceSub);
+					StringExplode(line, " ", SpaceSub);
 
 					CfFreq.push_back(atoi(SpaceSub[0].c_str()));
 					CfId.push_back(atoi(SpaceSub[1].c_str()));
