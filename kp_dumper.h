@@ -15,7 +15,7 @@ using namespace alphautils::imtools;
 namespace ins
 {
     // Anything shared with ins namespace here
-    typedef struct _dump_object{ size_t cluster_id; float weight; bool fg; size_t sequence_id; SIFT_Keypoint kp; } dump_object;
+    typedef struct _dump_object{ size_t cluster_id; float weight; bool fg; size_t sequence_id; INS_KP kp; } dump_object;
 
 class kp_dumper
 {
@@ -40,7 +40,7 @@ public:
     void get_singledump_with_filter(int idx, size_t sequence_id, vector<dump_object>& single_dump);
     string get_full_imgpath(int idx, int sequence_id);
 	void collect_kp(size_t dataset_id, size_t cluster_id, float weight, bool fg, size_t sequence_id, float* kp);
-	void collect_kp(size_t dataset_id, size_t cluster_id, float weight, bool fg, size_t sequence_id, SIFT_Keypoint kp);
+	void collect_kp(size_t dataset_id, size_t cluster_id, float weight, bool fg, size_t sequence_id, INS_KP kp);
 	void load(const string& in_path);
 	void dump(const string& out_path, const vector<size_t>& dump_ids, const vector<string>& img_roots, const vector< vector<string> >& img_filenames);
 	void reset();

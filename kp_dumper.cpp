@@ -102,10 +102,10 @@ string kp_dumper::get_full_imgpath(int idx, int sequence_id)
 
 void kp_dumper::collect_kp(size_t dataset_id, size_t cluster_id, float weight, bool fg, size_t sequence_id, float* kp)
 {
-    dump_space[dataset_id].push_back(dump_object{cluster_id, weight, fg, sequence_id, SIFT_Keypoint{kp[0], kp[1], kp[2], kp[3], kp[4]}});
+    dump_space[dataset_id].push_back(dump_object{cluster_id, weight, fg, sequence_id, INS_KP{kp[0], kp[1], kp[2], kp[3], kp[4]}});
 }
 
-void kp_dumper::collect_kp(size_t dataset_id, size_t cluster_id, float weight, bool fg, size_t sequence_id, SIFT_Keypoint kp)
+void kp_dumper::collect_kp(size_t dataset_id, size_t cluster_id, float weight, bool fg, size_t sequence_id, INS_KP kp)
 {
     dump_space[dataset_id].push_back(dump_object{cluster_id, weight, fg, sequence_id, kp});
 }
@@ -162,7 +162,7 @@ void kp_dumper::load(const string& in_path)
                            atof(vals[1].c_str()),               // weight
                            toBool(vals[2]),                     // fg
                            strtoull(vals[3].c_str(), NULL, 0),  // sequence_id
-                           SIFT_Keypoint{float(atof(vals[4].c_str())),  // x
+                           INS_KP{float(atof(vals[4].c_str())),  // x
                                          float(atof(vals[5].c_str())),  // y
                                          float(atof(vals[6].c_str())),  // a
                                          float(atof(vals[7].c_str())),  // b
