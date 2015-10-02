@@ -283,7 +283,7 @@ int homography::calc_adint()
                 highest_freq = inlier_hist_space[hist_idx].second;
             }
         }
-        // Find MIN, which is higher next to max
+        // Find MIN, which is lowest next to max
         for (size_t hist_idx = inlier_max_idx + 1; hist_idx < inlier_hist_space.size(); hist_idx++)
         {
             if (lowest_freq > inlier_hist_space[hist_idx].second)
@@ -303,6 +303,8 @@ int homography::calc_adint()
         // a^2 + b^2 = c^2
         // c = sqrt(a^2 + b^2)
         // if (highest_freq * (1 - thre) <= c)
+        //      if (found next peak inside the radius)
+        //          ** The peak inside the radius is the inlier freq that has step > the average step inside the radius
         float curr_step = 0.0f;
         float next_step = 0.0f;
         float average_step = 0.0f;
