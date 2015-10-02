@@ -136,12 +136,25 @@ void ins_param::set_presetparam(const string& params_prefix)
     /// Pattern sifthesaff-root-norm-rgb, sifthesaff-root-norm-lab, brisk
     stringstream feature_builder;
     feature_builder << params[1];
+	// Feature type
+	if (str_contains(params[1], "sifthesaff"))
+        feature_type = FEAT_SIFTHESAFF;
+	else if (str_contains(params[1], "orb"))
+		feature_type = FEAT_ORB;
+	else
+	{
+		cout << "Feature type incorrect" << endl;
+		exit(EXIT_FAILURE);
+	}
+			
+	// Color space
     if (str_contains(params[1], "rgb"))
         colorspace = RGB_SPACE;
     else if (str_contains(params[1], "irgb"))
         colorspace = IRGB_SPACE;
     else
         colorspace = LAB_SPACE;
+	// Feature params
     if (str_contains(params[1], "norm"))
         normpoint = true;
     if (str_contains(params[1], "root"))

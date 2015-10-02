@@ -12,9 +12,13 @@ using namespace std;
 
 namespace ins
 {
+	// Feature type
+	const static int FEAT_SIFTHESAFF	= 1000;
+	const static int FEAT_ORB			= 1001;
+	
     // Color space
-    const static int RGB_SPACE          = 10;       // PLEASE SYNCHRONIZE VALUE WITH SIFThesaff.h!!!
-    const static int IRGB_SPACE         = 11;       //                          AND imtools.h!!!!!
+    const static int RGB_SPACE          = 10;       // PLEASE SYNCHRONIZE VALUE WITH SIFThesaff.h, orb.h!!!
+    const static int IRGB_SPACE         = 11;
     const static int LAB_SPACE          = 12;
 
     // Inverted index mode
@@ -149,6 +153,7 @@ public:
 
     // Feature extractor
     string feature_name;
+	int feature_type;
     int colorspace;
     bool normpoint;
     bool rootsift;
