@@ -13,8 +13,8 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Siriwat Kasamwattanarote
-Date                   :=10/04/15
-CodeLitePath           :=""
+Date                   :=04/10/15
+CodeLitePath           :="${HOME}/webstylix/configurations/.codelite"
 LinkerName             :=g++
 SharedObjectLinkerName :=g++ -shared -fPIC
 ObjectSuffix           :=.o
@@ -50,7 +50,7 @@ LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)${HOME}/loca
 AR       := ar rcu
 CXX      := g++
 CC       := gcc
-CXXFLAGS :=  -O3 -std=c++11 $(Preprocessors)
+CXXFLAGS :=  -O3 -fopenmp -std=c++11 $(Preprocessors)
 CFLAGS   :=   $(Preprocessors)
 ASFLAGS  := 
 AS       := as
@@ -59,6 +59,7 @@ AS       := as
 ##
 ## User defined environment variables
 ##
+CodeLiteDir:=/usr/share/codelite
 Objects0=$(IntermediateDirectory)/bow.cpp$(ObjectSuffix) $(IntermediateDirectory)/compat.cpp$(ObjectSuffix) $(IntermediateDirectory)/core.cpp$(ObjectSuffix) $(IntermediateDirectory)/dataset_info.cpp$(ObjectSuffix) $(IntermediateDirectory)/gvp.cpp$(ObjectSuffix) $(IntermediateDirectory)/homography.cpp$(ObjectSuffix) $(IntermediateDirectory)/ins_param.cpp$(ObjectSuffix) $(IntermediateDirectory)/invert_index.cpp$(ObjectSuffix) $(IntermediateDirectory)/kp_dumper.cpp$(ObjectSuffix) $(IntermediateDirectory)/qb.cpp$(ObjectSuffix) \
 	$(IntermediateDirectory)/qe.cpp$(ObjectSuffix) $(IntermediateDirectory)/quantizer.cpp$(ObjectSuffix) $(IntermediateDirectory)/utils.cpp$(ObjectSuffix) $(IntermediateDirectory)/core_mask.cpp$(ObjectSuffix) $(IntermediateDirectory)/core_dataset.cpp$(ObjectSuffix) $(IntermediateDirectory)/math_vector.cpp$(ObjectSuffix) $(IntermediateDirectory)/retr_pooling.cpp$(ObjectSuffix) 
 
