@@ -20,6 +20,9 @@ class qe
     #define BIT1M bitset<1000000>
     vector<BIT1M> _multi_bow_flag;
     BIT1M _query_fg_mask;
+	
+	/// Sequence id for image/frame of video
+	int sequence_offset = 1000;
 
     /// Top-k Homography Pass
     vector<bool> topk_inlier;
