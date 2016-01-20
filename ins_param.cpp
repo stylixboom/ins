@@ -615,8 +615,9 @@ void ins_param::LoadPreset()
             vector<string> vals;
             StringExplode(params[param_idx], ",", vals);
 
-            //string path_from_dataset_root; int group_at_pool_level; string database_params_prefix
-            dataset_preset_object new_preset = {vals[0], atoi(vals[1].c_str()), vals[2]};
+            dataset_preset_object new_preset = {vals[0], 				// string path_from_dataset_root
+												atoi(vals[1].c_str()),	// int group_at_pool_level;
+												vals[2]};				// string database_params_prefix
 
             dataset_preset.push_back(new_preset);
 
