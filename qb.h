@@ -23,6 +23,9 @@ class qb
     BIT1M _query_fg_mask;
     string _working_dir;
     string _query_name;
+	
+	/// Sequence id for image/frame of video
+	int sequence_offset = 1000;
 
     /// Top-k Homography Pass
     bool ransac_check;

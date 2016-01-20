@@ -71,8 +71,8 @@ void qb::add_bow(const vector<bow_bin_object*>& bow_sig)
 {
     _multi_bow.push_back(bow_sig);
 
-    /// Update sequence_id for QE
-    size_t sequence_id = _multi_bow.size() - 1;
+    /// Update sequence_id for QB
+    size_t sequence_id = (_multi_bow.size() - 1) * sequence_offset;
     vector<bow_bin_object*>& bow = _multi_bow.back();
     for (size_t bin_idx = 0; bin_idx < bow.size(); bin_idx++)
     {
@@ -98,6 +98,9 @@ void qb::add_bow_from_rank(const vector<result_object>& result, const int top_k)
     /// Bow loader
     bow bow_loader;
     bow_loader.init(run_param);
+	// If video, load only the first frame of it (to be verified on only the first frame)
+	if (run_param.pooling_enable)
+		bow_loader.set_sequence_id_filter(0);
 
     /// Load bow for top_k result
     int top_load = result.size();
@@ -110,22 +113,25 @@ void qb::add_bow_from_rank(const vector<result_object>& result, const int top_k)
         load_list[result_idx] = result[result_idx].dataset_id;
     bow_loader.load_running_bows(load_list, loaded_multi_bow);
 
-    /// Update sequence_id for QE
-    size_t begin_sequence_id = _multi_bow.size();
+    /// Update sequence_id for QB
+    size_t sequence_id = _multi_bow.size() * sequence_offset;
     for (size_t bow_idx = 0; bow_idx < loaded_multi_bow.size(); bow_idx++)
     {
         vector<bow_bin_object*>& bow = loaded_multi_bow[bow_idx];
         for (size_t bin_idx = 0; bin_idx < bow.size(); bin_idx++)
         {
+			//cout << "bow: " << bow_idx << "/" << loaded_multi_bow.size() << " bin: " << bin_idx << " seq: ";
             bow_bin_object* bin = bow[bin_idx];
             for (size_t feature_idx = 0; feature_idx < bin->features.size(); feature_idx++)
             {
-                bin->features[feature_idx]->sequence_id = begin_sequence_id;
+				//cout << feature_idx << "," << bin->features[feature_idx]->sequence_id << "->" << sequence_id + bin->features[feature_idx]->sequence_id << " ";
+                bin->features[feature_idx]->sequence_id += sequence_id;
             }
+			//cout << endl;
         }
 
         // Increment sequence_id
-        begin_sequence_id++;
+        sequence_id += sequence_offset;
     }
 
     // Adding to the end of vector if not empty
@@ -651,7 +657,8 @@ void qb::topk_ransac_check(const vector<bow_bin_object*>& query_bow)
     for (size_t bin_idx = 0; bin_idx < query_bow.size(); bin_idx++)
     {
         bow_bin_object* bin = query_bow[bin_idx];
-        src_pts.push_back(Point2f(bin->features[0]->kp[0], bin->features[0]->kp[1]));       // Select only the first kp, hopefully it will be good for burstiness problem
+		// Select only the first kp, hopefully it will be good for burstiness problem
+        src_pts.push_back(Point2f(bin->features[0]->kp[0], bin->features[0]->kp[1]));
         src_cluster_ids.push_back(bin->cluster_id);
     }
     homo_tool.set_src_2dpts(src_pts, src_cluster_ids);
@@ -669,10 +676,19 @@ void qb::topk_ransac_check(const vector<bow_bin_object*>& query_bow)
         vector<size_t> ref_cluster_ids;
         vector<bow_bin_object*>& _bow = _multi_bow[bow_idx];
         for (size_t bin_idx = 0; bin_idx < _bow.size(); bin_idx++)
-        {
-            bow_bin_object* bin = _bow[bin_idx];
-            ref_pts.push_back(Point2f(bin->features[0]->kp[0], bin->features[0]->kp[1]));   // Select only the first kp, hopefully it will be good for burstiness problem
-            ref_cluster_ids.push_back(bin->cluster_id);
+        {			
+			bow_bin_object* bin = _bow[bin_idx];
+			
+			/*
+			cout << "bow:" << bow_idx << "/" <<  _multi_bow.size() << " bin: " << bin_idx << " seq: ";						
+			for (size_t feat_idx = 0; feat_idx < bin->features.size(); feat_idx++)
+				cout << bin->features[0]->sequence_id << " ";
+			cout << endl;
+			*/
+			
+			// Select only the first kp (features[0]), hopefully it will be good for burstiness problem										
+			ref_pts.push_back(Point2f(bin->features[0]->kp[0], bin->features[0]->kp[1]));   
+			ref_cluster_ids.push_back(bin->cluster_id);
         }
         homo_tool.add_ref_2dpts(ref_pts, ref_cluster_ids);
 
