@@ -836,6 +836,17 @@ void bow::load_bow_pool_offset()
     bow_pool_offset_ready = true;
 }
 
+void bow::set_sequence_id_filter(size_t sequence_id)
+{	
+	sequence_filter = true;
+	allow_sequence_id = sequence_id;
+}
+
+void bow::unset_sequence_id_filter()
+{
+	sequence_filter = false;
+}
+
 bool bow::load_specific_bow_pool(const size_t pool_id, vector<bow_bin_object*>& bow_sig)
 {
     // Transform one pool to multiple pool function
@@ -922,6 +933,19 @@ bool bow::load_specific_bow_pools(const vector<size_t>& pool_ids, vector< vector
                     // Sequence ID
                     feature->sequence_id = *((size_t*)bow_buffer_ptr);
                     bow_buffer_ptr += sizeof(feature->sequence_id);
+					
+					// Filtering sequence_id
+					if (sequence_filter &&
+						feature->sequence_id != allow_sequence_id)
+					{
+						// Release feature memory
+						delete feature;
+						// Skip buffer to skip header
+						bow_buffer_ptr += (sizeof(float) * head_size);
+						
+						continue;
+					}
+					
                     // x y a b c
                     feature->kp = new float[head_size];
                     for (int head_idx = 0; head_idx < head_size; head_idx++)
@@ -932,6 +956,17 @@ bool bow::load_specific_bow_pools(const vector<size_t>& pool_ids, vector< vector
 
                     read_bin->features.push_back(feature);
                 }
+
+				// Filtering sequence_id (if found feature is empty)
+				if (sequence_filter &&
+					read_bin->features.size() == 0)
+				{
+					// Release bow_bin_object memory
+					vector<feature_object*>().swap(read_bin->features);
+					delete read_bin;                                   	// delete bow_bin_object*
+					
+					continue;
+				}
 
                 // Keep bow
                 bow_sigs[pool_idx].push_back(read_bin);

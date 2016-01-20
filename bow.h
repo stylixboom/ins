@@ -25,6 +25,8 @@ class bow
     vector< vector<bow_bin_object*> > multi_bow;
     vector<size_t> multi_bow_image_id;
     // Pooling
+	bool sequence_filter = false;
+	size_t allow_sequence_id;
     bool bow_pool_offset_ready;
     vector<size_t> bow_pool_offset;
     vector< vector<bow_bin_object*> > multi_bow_pool;
@@ -58,6 +60,8 @@ public:
 	void build_pool(const int pooling_mode);                                                        // Building multi_bow_pool from current multi_bow
 	void flush_bow_pool(bool append);                                                               // Flush bow_pool to disk
 	void load_bow_pool_offset();                                                                    // Load bow_offset from disk, use once before calling load_specific_bow_pool
+	void set_sequence_id_filter(size_t sequence_id);												// Filter only specific sequence_id (frame index) to be loaded
+	void unset_sequence_id_filter();																// Unset sequence_id filter
 	bool load_specific_bow_pool(const size_t pool_id, vector<bow_bin_object*>& bow_sig);            // Load specific bow from disk
 	bool load_specific_bow_pools(const vector<size_t>& pool_ids, vector< vector<bow_bin_object*> >& bow_sigs);
 	size_t get_bow_pool_size();                                                                     // Get bow_pool size
