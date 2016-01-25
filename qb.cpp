@@ -185,7 +185,7 @@ void qb::build_transaction(const string& out, const vector< vector<bow_bin_objec
             // Skip this transaction if found to be outlier
             if (ransac_check && !topk_inlier[bow_idx])
             {
-                cout << "Skip outlier transaction: " << redc << toString(bow_idx) << endc << endl;
+                //cout << "Skip outlier transaction: " << redc << toString(bow_idx) << endc << endl;
                 continue;   /// Transpose mode, skip transaction by not add transaction_id to it
             }
 
@@ -1080,7 +1080,7 @@ void qb::build_fim_pool(vector< vector<bow_bin_object*> >& multi_bow, const unor
         // Skip transaction if not frequent (use with transpose mode)
         if (transpose && transaction_set.find(bow_idx) == transaction_set.end())
         {
-            cout << "skip transaction " << bow_idx << endl;
+            //cout << "skip transaction " << bow_idx << endl;
             continue;
         }
 
