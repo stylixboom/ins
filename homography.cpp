@@ -356,6 +356,26 @@ int homography::calc_adint()
         }
     }
     cout << "Auto threshold: " << greenc << adint << endc << endl;
+	
+	/// Check if the auto threshold is too high
+	int total_passed_image = 0;
+	for (size_t hist_idx = inlier_hist_space.size() - 1; hist_idx >= 0; hist_idx--)
+	{
+		if (inlier_hist_space[hist_idx].first < adint)
+		{
+			if (total_passed_image < 4)
+			{
+				cout << redc << "Lowering ADINT " << endc << "from " << redc << adint << endc <<
+				" to " << greenc << inlier_hist_space[hist_idx].first << endc << endl;
+				// Set new ADINT
+				adint = inlier_hist_space[hist_idx].first;
+			}
+			else
+				break;
+		}
+			
+		total_passed_image += inlier_hist_space[hist_idx].second;	// Accumulating the pass frequency
+	}
 
     if (run_param.qe_ransac_adint_manual)
     {
