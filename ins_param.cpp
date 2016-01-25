@@ -90,11 +90,13 @@ ins_param::ins_param(void)
     qe_ransac_enable = false;
     qe_ransac_adint_enable = false;
     qe_ransac_adint_manual = false;
+	qe_query_mask_enable = false;
 
     // QBmining
     qb_enable = false;
     qb_iteration = 0;
     qb_transpose_enable = false;
+	qb_query_mask_enable = false;
 
     // Multi-query
     earlyfusion_enable = false;             // Default disable all fusion
