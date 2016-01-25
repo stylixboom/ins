@@ -87,8 +87,8 @@ void qe::add_bow_from_rank(const vector<result_object>& result, const int top_k)
     bow bow_loader;
     bow_loader.init(run_param);
 	// If video, load only the first frame of it (to be verified on only the first frame)
-	if (run_param.pooling_enable)
-		bow_loader.set_sequence_id_filter(0);
+	//if (run_param.pooling_enable)
+	//	bow_loader.set_sequence_id_filter(0);
 
     /// Load bow for top_k result
     int top_load = result.size();
@@ -197,6 +197,11 @@ void qe::qe_basic(const vector<bow_bin_object*>& query_bow, vector<bow_bin_objec
         {
             bow_bin_object* bin = _bow[bin_idx];
 			// Select only the first kp, hopefully it will be good for burstiness problem
+			
+			// Filtering only first frame to be verified
+			if (bin->features[0]->sequence_id % sequence_offset > 0)
+				continue;
+				
             ref_pts.push_back(Point2f(bin->features[0]->kp[0], bin->features[0]->kp[1]));
             ref_cluster_ids.push_back(bin->cluster_id);
         }
@@ -329,17 +334,17 @@ void qe::build_qe_pool(vector< vector<bow_bin_object*> >& multi_bow, vector<BIT1
         bow_sig.push_back(spare_bow_it->second);
     }
 
-    cout << "QE setup foreground.."; cout.flush();
     /// QE Pooling with query foreground constrain
     if (run_param.qe_query_mask_enable)
     {
+		cout << "QE setup foreground.."; cout.flush();
         for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
         {
             if (_query_fg_mask[bow_sig[bin_idx]->cluster_id])
                 bow_sig[bin_idx]->fg = true;
         }
+		cout << "done!" << endl;
     }
-    cout << "done!" << endl;
 
     cout << "QE powerlaw..skipped" << endl;
     /*

@@ -99,8 +99,8 @@ void qb::add_bow_from_rank(const vector<result_object>& result, const int top_k)
     bow bow_loader;
     bow_loader.init(run_param);
 	// If video, load only the first frame of it (to be verified on only the first frame)
-	if (run_param.pooling_enable)
-		bow_loader.set_sequence_id_filter(0);
+	//if (run_param.pooling_enable)
+	//	bow_loader.set_sequence_id_filter(0);
 
     /// Load bow for top_k result
     int top_load = result.size();
@@ -679,12 +679,9 @@ void qb::topk_ransac_check(const vector<bow_bin_object*>& query_bow)
         {			
 			bow_bin_object* bin = _bow[bin_idx];
 			
-			/*
-			cout << "bow:" << bow_idx << "/" <<  _multi_bow.size() << " bin: " << bin_idx << " seq: ";						
-			for (size_t feat_idx = 0; feat_idx < bin->features.size(); feat_idx++)
-				cout << bin->features[0]->sequence_id << " ";
-			cout << endl;
-			*/
+			// Filtering only first frame to be verified
+			if (bin->features[0]->sequence_id % sequence_offset > 0)
+				continue;
 			
 			// Select only the first kp (features[0]), hopefully it will be good for burstiness problem										
 			ref_pts.push_back(Point2f(bin->features[0]->kp[0], bin->features[0]->kp[1]));   
@@ -783,8 +780,8 @@ void qb::mining_maxpat_bow(vector<bow_bin_object*>& mined_bow_sig)
     int maxpat = 0;
     int maxpat_runid = 0;
     int fallback_count = 0;
-    int fallback_count_limit = 4;
-    int fallback_maxsup_step = 100;
+    int fallback_count_limit = 3;
+    int fallback_maxsup_step = 200;
     do
     {
         int total_block = maxsup / step - start_run;
@@ -929,7 +926,7 @@ void qb::mining_maxpat_bow(vector<bow_bin_object*>& mined_bow_sig)
                 if (maxpat < pattern_count[pat_idx])
                 {
                     maxpat = pattern_count[pat_idx];
-                    maxpat_runid = pat_idx;
+                    maxpat_runid = pat_idx + start_run;
                 }
             }
         }
@@ -938,7 +935,7 @@ void qb::mining_maxpat_bow(vector<bow_bin_object*>& mined_bow_sig)
         {
             cout << "Found missing at [" << redc << (patidx_state[openzero_patidx] + start_run) * step << endc << "," << redc << (patidx_state[closezero_patidx] + start_run) * step << endc << "]" << endl;
             maxpat = -1;
-            maxpat_runid = (patidx_state[openzero_patidx] + patidx_state[closezero_patidx]) / 2;
+            maxpat_runid = ((patidx_state[openzero_patidx] + patidx_state[closezero_patidx]) / 2) + start_run;
         }
 
         // Release memory
@@ -1137,17 +1134,17 @@ void qb::build_fim_pool(vector< vector<bow_bin_object*> >& multi_bow, const unor
         bow_sig.push_back(spare_bow_it->second);
     }
 
-    cout << "QB setup foreground.."; cout.flush();
     /// QB Pooling with query foreground constrain
     if (run_param.qb_query_mask_enable)
     {
+		cout << "QB setup foreground.."; cout.flush();
         for (size_t bin_idx = 0; bin_idx < bow_sig.size(); bin_idx++)
         {
             if (_query_fg_mask[bow_sig[bin_idx]->cluster_id])
                 bow_sig[bin_idx]->fg = true;
         }
+		cout << "done!" << endl;
     }
-    cout << "done!" << endl;
 
     cout << "QB powerlaw..skipped" << endl;
     /*
