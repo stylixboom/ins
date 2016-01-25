@@ -18,6 +18,7 @@
 #include <cmath>
 #include <algorithm>    // sort
 #include <cstdlib>      // exit
+#include <omp.h>
 
 // Siriwat's header
 #include "../alphautils/alphautils.h"
@@ -500,73 +501,88 @@ void invert_index::cache_broker(const vector<bow_bin_object*>& bow_sig)
 
 void invert_index::cache_worker(const map<size_t, size_t>& cache_list)
 {
-    // Load inv_idx_data
-    ifstream inv_data_File (run_param.inv_data_path.c_str(), ios::binary);
-    if (inv_data_File)
-    {
-        int cache_done = 0;
+	if (is_path_exist(run_param.inv_data_path))
+    {		
+		// Convert cache_list to random iterator (for parallel)
+		vector<size_t> cache_list_vector;
+		size_t cache_list_vector_size;
+		for (auto cache_list_it = cache_list.begin(); cache_list_it != cache_list.end(); cache_list_it++)
+			cache_list_vector.push_back(cache_list_it->first);
+		cache_list_vector_size = cache_list_vector.size();
+			
         //int head_size = SIFThesaff::GetSIFTHeadSize();
         int head_size = run_param.INV_mode;
         cout << "Caching inverted index.."; cout.flush();
-        for (auto cache_list_it = cache_list.begin(); cache_list_it != cache_list.end(); cache_list_it++, cache_done++)
-        {
-            // Get cluster_id
-            size_t cluster_id = cache_list_it->first;
+		#pragma omp parallel shared(cache_list_vector)
+		{
+			#pragma omp for schedule(dynamic,1)
+			for (size_t cache_list_idx = 0; cache_list_idx < cache_list_vector_size; cache_list_idx++)
+			{			
+				// Load inv_idx_data
+				ifstream inv_data_File (run_param.inv_data_path.c_str(), ios::binary);
+					
+				// Get cluster_id
+				size_t cluster_id = cache_list_vector[cache_list_idx];
 
-            // Seek to cluster_id position
-            inv_data_File.seekg(cluster_offset[cluster_id]);
+				// Seek to cluster_id position
+				inv_data_File.seekg(cluster_offset[cluster_id]);
 
-            // Get size of this cluster from this header
-            size_t cluster_count = actual_cluster_amount[cluster_id];
+				// Get size of this cluster from this header
+				size_t cluster_count = actual_cluster_amount[cluster_id];
 
-            // Read dataset data
-            for (size_t dataset_index = 0; dataset_index < cluster_count; dataset_index++)
-            {
-                /// INV BASIC
-                dataset_object* read_dataset = new dataset_object();
-                // Read dataset_id
-                inv_data_File.read((char*)(&(read_dataset->dataset_id)), sizeof(read_dataset->dataset_id));
-                // Read weight
-                inv_data_File.read((char*)(&(read_dataset->weight)), sizeof(read_dataset->weight));
+				// Read dataset data
+				vector<dataset_object*> read_dataset_pack(cluster_count);
+				for (size_t dataset_index = 0; dataset_index < cluster_count; dataset_index++)
+				{	
+					/// INV BASIC
+					dataset_object* read_dataset = new dataset_object();
+					// Read dataset_id
+					inv_data_File.read((char*)(&(read_dataset->dataset_id)), sizeof(read_dataset->dataset_id));
+					// Read weight
+					inv_data_File.read((char*)(&(read_dataset->weight)), sizeof(read_dataset->weight));
 
-                // Non basic inverted index
-                if (run_param.INV_mode != INV_BASIC)
-                {
-                    /// INV 0
-                    // Read feature_size
-                    size_t feature_size = 0;
-                    inv_data_File.read((char*)(&feature_size), sizeof(feature_size));
+					// Non basic inverted index
+					if (run_param.INV_mode != INV_BASIC)
+					{
+						/// INV 0
+						// Read feature_size
+						size_t feature_size = 0;
+						inv_data_File.read((char*)(&feature_size), sizeof(feature_size));
 
-                    // Read vector<feature_object*>
-                    if (head_size)
-                    {
-                        /// INV 2,5
-                        for (size_t feature_idx = 0; feature_idx < feature_size; feature_idx++)
-                        {
-                            feature_object* read_feature = new feature_object();
-                            // Read image_id
-                            inv_data_File.read((char*)(&(read_feature->image_id)), sizeof(read_feature->image_id));
-                            // Read sequence_id
-                            inv_data_File.read((char*)(&(read_feature->sequence_id)), sizeof(read_feature->sequence_id));
-                            // Read x y a b c
-                            read_feature->kp = new float[head_size];
-                            for (int head_idx = 0; head_idx < head_size; head_idx++)
-                                inv_data_File.read((char*)(&(read_feature->kp[head_idx])), sizeof(*(read_feature->kp)));
+						// Read vector<feature_object*>
+						if (head_size)
+						{
+							/// INV 2,5
+							for (size_t feature_idx = 0; feature_idx < feature_size; feature_idx++)
+							{
+								feature_object* read_feature = new feature_object();
+								// Read image_id
+								inv_data_File.read((char*)(&(read_feature->image_id)), sizeof(read_feature->image_id));
+								// Read sequence_id
+								inv_data_File.read((char*)(&(read_feature->sequence_id)), sizeof(read_feature->sequence_id));
+								// Read x y a b c
+								read_feature->kp = new float[head_size];
+								for (int head_idx = 0; head_idx < head_size; head_idx++)
+									inv_data_File.read((char*)(&(read_feature->kp[head_idx])), sizeof(*(read_feature->kp)));
 
-                            // Keep feature
-                            read_dataset->features.push_back(read_feature);
-                        }
-                    }
-                }
-                inv_idx_data[cluster_id].push_back(read_dataset);
-            }
+								// Keep feature
+								read_dataset->features.push_back(read_feature);
+							}
+						}
+					}
+					read_dataset_pack[dataset_index] = read_dataset;
+				}
+				// Push once a pack
+				#pragma omp critical
+				inv_idx_data[cluster_id].insert(inv_idx_data[cluster_id].end(), read_dataset_pack.begin(), read_dataset_pack.end());
 
-            percentout(cache_done, cache_list.size(), 10);
-        }
+				percentout(cache_list_idx, cache_list_vector_size, 10);
+				
+				// Close file
+				inv_data_File.close();
+			}
+		}
         cout << "done!" << string(10, ' ') << endl;
-
-        // Close file
-        inv_data_File.close();
 
         // Memory flag
         cache_free = false;
