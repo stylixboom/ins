@@ -82,13 +82,15 @@ int kp_dumper::convert_imgfilename_to_sequenceid(int idx, const string& img_file
 
 void kp_dumper::get_singledump_with_filter(int idx, size_t sequence_id, vector<dump_object>& single_dump)
 {
+	vector<dump_object> ret_single_dump;
     vector<dump_object>& full_singledump = dump_space[_dump_ids[idx]];
     for (size_t singledump_idx = 0; singledump_idx < full_singledump.size(); singledump_idx++)
     {
         // Filtering with sequence_id
         if (full_singledump[singledump_idx].sequence_id == size_t(sequence_id))
-            single_dump.push_back(full_singledump[singledump_idx]);
+            ret_single_dump.push_back(full_singledump[singledump_idx]);
     }
+	ret_single_dump.swap(single_dump);
 }
 
 string kp_dumper::get_full_imgpath(int idx, int sequence_id)
