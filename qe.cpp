@@ -275,7 +275,7 @@ void qe::build_qe_pool(vector< vector<bow_bin_object*> >& multi_bow, vector<BIT1
         // Skip this image if found to be outlier
         if (!topk_inlier[bow_idx])
         {
-            cout << "Skip image #" << bow_idx << endl;
+            //cout << "Skip image #" << bow_idx << endl;
             continue;
         }
 
